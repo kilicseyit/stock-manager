@@ -2,7 +2,8 @@
 
 import React from 'react';
 import ThemeToggle from './ThemeToggle';
-import { Search, Bell, HelpCircle } from 'lucide-react';
+import NotificationBell from './NotificationBell';
+import { Search, HelpCircle } from 'lucide-react';
 
 export default function Topbar() {
   return (
@@ -32,10 +33,7 @@ export default function Topbar() {
         </button>
 
         {/* Notifications */}
-        <button className="p-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-indigo-600 dark:bg-indigo-500 border-2 border-white dark:border-zinc-900 rounded-full" />
-        </button>
+        <NotificationBell />
 
         <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
 
@@ -45,3 +43,4 @@ export default function Topbar() {
     </header>
   );
 }
+

@@ -34,15 +34,15 @@ export default function Sidebar({ user }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Ürünler', href: '/urunler', icon: Package },
-    { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree },
-    { name: 'Stok', href: '/stok', icon: Boxes },
-    { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin },
-    { name: 'Tedarikçiler', href: '/dashboard/suppliers', icon: Truck },
-    { name: 'Siparişler', href: '/dashboard/orders', icon: FileSpreadsheet },
-    { name: 'Raporlar', href: '/dashboard/reports', icon: BarChart3 },
-    { name: 'Ayarlar', href: '/dashboard/settings', icon: Settings },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, soon: false },
+    { name: 'Ürünler', href: '/urunler', icon: Package, soon: false },
+    { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree, soon: false },
+    { name: 'Stok', href: '/stok', icon: Boxes, soon: false },
+    { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin, soon: false },
+    { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck, soon: true },
+    { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet, soon: true },
+    { name: 'Raporlar', href: '/raporlar', icon: BarChart3, soon: true },
+    { name: 'Ayarlar', href: '/dashboard/settings', icon: Settings, soon: false },
   ];
 
   const handleLogout = () => {
@@ -107,7 +107,12 @@ export default function Sidebar({ user }: SidebarProps) {
                       isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-400 dark:text-zinc-500'
                     }`}
                   />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {item.soon && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-md border border-amber-200/50 dark:border-amber-700/30">
+                      soon
+                    </span>
+                  )}
                 </Link>
               );
             })}
