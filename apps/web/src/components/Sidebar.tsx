@@ -39,8 +39,8 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree, soon: false },
     { name: 'Stok', href: '/stok', icon: Boxes, soon: false },
     { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin, soon: false },
-    { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck, soon: true },
-    { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet, soon: true },
+    { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck, soon: false },
+    { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet, soon: false },
     { name: 'Raporlar', href: '/raporlar', icon: BarChart3, soon: true },
     { name: 'Ayarlar', href: '/dashboard/settings', icon: Settings, soon: false },
   ];
