@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from '@/trpc/client';
+import { SessionProvider } from 'next-auth/react';
 
 function getBaseUrl() {
   if (typeof window !== 'undefined') return '';
@@ -33,7 +34,9 @@ export default function TRPCProvider({ children }: { children: React.ReactNode }
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );
