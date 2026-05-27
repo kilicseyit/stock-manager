@@ -16,6 +16,7 @@ export default function ThemeToggle() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(initial);
   }, []);
 

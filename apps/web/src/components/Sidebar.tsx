@@ -37,8 +37,8 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Ürünler', href: '/urunler', icon: Package },
     { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree },
-    { name: 'Stok', href: '/dashboard/inventory', icon: Boxes },
-    { name: 'Lokasyonlar', href: '/dashboard/locations', icon: MapPin },
+    { name: 'Stok', href: '/stok', icon: Boxes },
+    { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin },
     { name: 'Tedarikçiler', href: '/dashboard/suppliers', icon: Truck },
     { name: 'Siparişler', href: '/dashboard/orders', icon: FileSpreadsheet },
     { name: 'Raporlar', href: '/dashboard/reports', icon: BarChart3 },
@@ -90,7 +90,7 @@ export default function Sidebar({ user }: SidebarProps) {
           <nav className="flex-1 px-4 space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.name}
