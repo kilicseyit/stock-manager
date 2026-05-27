@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  WAREHOUSE_MANAGER
+  STAFF
+  VIEWER
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum OrderStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(STAFF)
+  warehouseId  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  warehouse    Warehouse?      @relation(fields: [warehouseId], references: [id])
+  movements    StockMovement[]
+  notifications Notification[]
+  auditLogs    AuditLog[]
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  timezone  String   @default("Europe/Istanbul")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  locations Location[]
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  name     String
+  parentId String?
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  sku        String   @unique
+  name       String
+  categoryId String?
+  unit       String   @default("adet")
+  barcode    String?  @unique
+  qrCode     String?
+  imageUrl   String?
+  minStock   Int      @default(0)
+  maxStock   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  stockItems     StockItem[]
+  movements      StockMovement[]
+  orderItems     PurchaseOrderItem[]
+}
+
+model Location {
+  id          String  @id @default(cuid())
+  warehouseId String
+  zone        String
+  aisle       String?
+  shelf       String?
+  bin         String?
+
+  warehouse      Warehouse       @relation(fields: [warehouseId], references: [id])
+  stockItems     StockItem[]
+  movementsFrom  StockMovement[] @relation("FromLocation")
+  movementsTo    StockMovement[] @relation("ToLocation")
+}
+
+model StockItem {
+  id          String   @id @default(cuid())
+  productId   String
+  locationId  String
+  quantity    Int      @default(0)
+  reservedQty Int      @default(0)
+  batchNumber String?
+  expiryDate  DateTime?
+  updatedAt   DateTime @updatedAt
+
+  product  Product  @relation(fields: [productId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, locationId])
+}
+
+model StockMovement {
+  id             String       @id @default(cuid())
+  type           MovementType
+  productId      String
+  fromLocationId String?
+  toLocationId   String?
+  quantity       Int
+  userId         String
+  reason         String?
+  createdAt      DateTime     @default(now())
+
+  product      Product   @relation(fields: [productId], references: [id])
+  fromLocation Location? @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation   Location? @relation("ToLocation", fields: [toLocationId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+}
+
+model Supplier {
+  id          String  @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  rating      Float   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id         String      @id @default(cuid())
+  supplierId String
+  status     OrderStatus @default(DRAFT)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  supplier Supplier           @relation(fields: [supplierId], references: [id])
+  items    PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  productId   String
+  orderedQty  Int
+  receivedQty Int    @default(0)
+  unitPrice   Float  @default(0)
+
+  order   PurchaseOrder @relation(fields: [orderId], references: [id])
+  product Product       @relation(fields: [productId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  oldValue  Json?
+  newValue  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
