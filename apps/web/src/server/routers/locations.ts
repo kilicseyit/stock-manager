@@ -4,6 +4,7 @@ import {
   createLocationSchema,
   updateLocationSchema,
   createWarehouseSchema,
+  updateWarehouseSchema,
 } from '@/schemas/location';
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
@@ -156,5 +157,56 @@ export const locationRouter = router({
           timezone: input.timezone,
         },
       });
+    }),
+
+  /** Depo güncelle */
+  updateWarehouse: publicProcedure
+    .input(updateWarehouseSchema)
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+
+      const existing = await prisma.warehouse.findUnique({ where: { id } });
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Depo bulunamadı.' });
+      }
+
+      const updateData: Record<string, unknown> = {};
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.address !== undefined) updateData.address = data.address;
+      if (data.timezone !== undefined) updateData.timezone = data.timezone;
+
+      return prisma.warehouse.update({
+        where: { id },
+        data: updateData,
+      });
+    }),
+
+  /** Depo sil */
+  deleteWarehouse: publicProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const locationCount = await prisma.location.count({
+        where: { warehouseId: input.id },
+      });
+
+      if (locationCount > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Bu depoya bağlı ${locationCount} adet lokasyon bulunuyor. Lokasyonları silmeden depo silinemez.`,
+        });
+      }
+
+      const userCount = await prisma.user.count({
+        where: { warehouseId: input.id },
+      });
+
+      if (userCount > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Bu depoda görevli ${userCount} kullanıcı bulunuyor. Kullanıcıları güncellemeden depo silinemez.`,
+        });
+      }
+
+      return prisma.warehouse.delete({ where: { id: input.id } });
     }),
 });

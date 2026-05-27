@@ -1,278 +1,377 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/trpc/client';
 import {
   Package,
   AlertTriangle,
   TrendingUp,
-  Warehouse,
-  ArrowUpRight,
-  ArrowDownRight,
-  History,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ArrowLeftRight,
-  Wrench,
-  Link as LinkIcon,
+  FileText,
+  Calendar,
+  Layers,
+  BarChart3,
+  MapPin,
+  RefreshCw,
 } from 'lucide-react';
-import Link from 'next/link';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  Legend,
+} from 'recharts';
 
-const movementTypeConfig: Record<string, { label: string; color: string }> = {
-  IN: { label: 'Giriş', color: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30' },
-  OUT: { label: 'Çıkış', color: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/30' },
-  TRANSFER: { label: 'Transfer', color: 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30' },
-  ADJUSTMENT: { label: 'Düzeltme', color: 'bg-zinc-50 dark:bg-zinc-800/30 text-zinc-600 dark:text-zinc-400 border-zinc-100 dark:border-zinc-800/30' },
-};
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
-function StatCardSkeleton() {
+function DashboardSkeleton() {
   return (
-    <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl animate-pulse">
-      <div className="flex items-center justify-between mb-4">
-        <div className="h-3 w-24 bg-zinc-200 dark:bg-zinc-800 rounded" />
-        <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+    <div className="space-y-8 animate-pulse">
+      <div className="space-y-2">
+        <div className="h-8 w-64 bg-zinc-200 dark:bg-zinc-800 rounded-lg" />
+        <div className="h-4 w-96 bg-zinc-100 dark:bg-zinc-800/60 rounded-md" />
       </div>
-      <div className="h-8 w-16 bg-zinc-200 dark:bg-zinc-800 rounded" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-2xl bg-zinc-100 dark:bg-zinc-800/40 border border-zinc-200/50 dark:border-zinc-800/50" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="h-96 rounded-2xl bg-zinc-100 dark:bg-zinc-800/40 border border-zinc-200/50 dark:border-zinc-800/50" />
+        <div className="h-96 rounded-2xl bg-zinc-100 dark:bg-zinc-800/40 border border-zinc-200/50 dark:border-zinc-800/50" />
+      </div>
     </div>
   );
 }
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const { data: stats, isLoading } = trpc.inventory.getDashboardStats.useQuery(undefined, {
-    refetchInterval: 60_000, // 1 dakika
+  const [daysFilter, setDaysFilter] = useState(30);
+
+  // tRPC Queries
+  const kpisQuery = trpc.analytics.getKPIs.useQuery(undefined, {
+    refetchOnWindowFocus: false,
   });
 
-  const statCards = [
+  const trendQuery = trpc.analytics.getStockMovementTrend.useQuery(
+    { days: daysFilter },
+    { refetchOnWindowFocus: false }
+  );
+
+  const topProductsQuery = trpc.analytics.getTopProducts.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const categoryQuery = trpc.analytics.getCategoryDistribution.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const occupancyQuery = trpc.analytics.getLocationOccupancy.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const isLoading =
+    kpisQuery.isLoading ||
+    trendQuery.isLoading ||
+    topProductsQuery.isLoading ||
+    categoryQuery.isLoading ||
+    occupancyQuery.isLoading;
+
+  const handleRefresh = () => {
+    kpisQuery.refetch();
+    trendQuery.refetch();
+    topProductsQuery.refetch();
+    categoryQuery.refetch();
+    occupancyQuery.refetch();
+  };
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const kpiData = kpisQuery.data ?? {
+    totalProducts: 0,
+    totalStockValue: 0,
+    pendingOrders: 0,
+    criticalStockCount: 0,
+  };
+
+  const kpis = [
     {
-      title: 'Toplam Ürün',
-      value: stats?.totalProducts ?? '—',
+      title: 'Toplam SKU (Ürün)',
+      value: kpiData.totalProducts,
       icon: Package,
-      color: 'indigo' as const,
-      change: null as string | null,
-      isPositive: null as boolean | null,
-      href: '/urunler',
+      color: 'indigo',
+      desc: 'Sistemde kayıtlı aktif ürün çeşidi',
     },
     {
-      title: 'Düşük Stok Uyarıları',
-      value: stats?.lowStockCount ?? '—',
-      icon: AlertTriangle,
-      color: 'rose' as const,
-      change: stats?.lowStockCount ? `${stats.lowStockCount} kalem` : null,
-      isPositive: stats?.lowStockCount === 0 ? true : false,
-      href: '/stok',
-    },
-    {
-      title: 'Toplam Stok Hareketi',
-      value: stats?.totalMovements ?? '—',
+      title: 'Toplam Stok Değeri',
+      value: `₺${kpiData.totalStockValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
       icon: TrendingUp,
-      color: 'emerald' as const,
-      change: null,
-      isPositive: null,
-      href: '/stok',
+      color: 'emerald',
+      desc: 'Mevcut envanterin satın alma değeri',
     },
     {
-      title: 'Aktif Depolar',
-      value: '1',
-      icon: Warehouse,
-      color: 'amber' as const,
-      change: 'Sabit durum',
-      isPositive: null,
-      href: '/lokasyonlar',
+      title: 'Bekleyen Sipariş',
+      value: kpiData.pendingOrders,
+      icon: FileText,
+      color: 'amber',
+      desc: 'Yolda olan veya kısmi kabul edilen siparişler',
+    },
+    {
+      title: 'Kritik Stok Uyarısı',
+      value: kpiData.criticalStockCount,
+      icon: AlertTriangle,
+      color: 'rose',
+      desc: 'Minimum stok seviyesinin altındaki kalemler',
     },
   ];
 
-  const colorMap = {
-    indigo: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/30',
-    rose: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/30',
-    emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/30',
-    amber: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900/30',
+  const colorStyles = {
+    indigo: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-150 dark:border-indigo-900/30',
+    emerald: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-150 dark:border-emerald-900/30',
+    amber: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-150 dark:border-amber-900/30',
+    rose: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30 border-rose-150 dark:border-rose-900/30',
   };
 
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Welcome Banner */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Hoş Geldiniz, {session?.user?.name || 'Kullanıcı'}
-        </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-          Depo durumuna ve güncel operasyonlara genel bakış.
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
-          : statCards.map((stat) => {
-              const Icon = stat.icon;
-              const colors = colorMap[stat.color];
-              return (
-                <Link
-                  href={stat.href}
-                  key={stat.title}
-                  className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl flex flex-col justify-between shadow-sm hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800/50 transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      {stat.title}
-                    </span>
-                    <div className={`p-2.5 rounded-xl border ${colors}`}>
-                      <Icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-                      {String(stat.value)}
-                    </span>
-
-                    {stat.isPositive !== null && stat.change && (
-                      <div className="flex items-center gap-1 mt-2">
-                        {stat.isPositive ? (
-                          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
-                        )}
-                        <span className={`text-xs font-semibold ${stat.isPositive ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {stat.change}
-                        </span>
-                      </div>
-                    )}
-                    {stat.isPositive === null && stat.change && (
-                      <div className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-                        {stat.change}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-      </div>
-
-      {/* Lower Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Activity Table */}
-        <div className="lg:col-span-2 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl shadow-sm space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-indigo-500" />
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Son Stok Hareketleri</h2>
-            </div>
-            <Link
-              href="/stok"
-              className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-            >
-              Tümünü Gör
-              <LinkIcon className="w-3 h-3" />
-            </Link>
-          </div>
-
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800/50 animate-pulse" />
-              ))}
-            </div>
-          ) : !stats?.recentMovements.length ? (
-            <div className="py-12 text-center">
-              <History className="w-10 h-10 mx-auto text-zinc-300 dark:text-zinc-700 mb-2" />
-              <p className="text-sm text-zinc-400 dark:text-zinc-500">Henüz stok hareketi yok.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-100 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 font-medium">
-                    <th className="pb-3 font-semibold">Tür</th>
-                    <th className="pb-3 font-semibold">Ürün</th>
-                    <th className="pb-3 font-semibold text-right">Miktar</th>
-                    <th className="pb-3 font-semibold">Kullanıcı</th>
-                    <th className="pb-3 font-semibold text-right">Tarih</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100/50 dark:divide-zinc-800/50">
-                  {stats.recentMovements.map((m) => {
-                    const cfg = movementTypeConfig[m.type] ?? movementTypeConfig.IN;
-                    return (
-                      <tr key={m.id} className="text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20">
-                        <td className="py-3">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.color}`}>
-                            {cfg.label}
-                          </span>
-                        </td>
-                        <td className="py-3 font-medium text-zinc-900 dark:text-zinc-50">
-                          <div>
-                            <p>{m.product.name}</p>
-                            <p className="text-xs text-zinc-400">{m.product.sku}</p>
-                          </div>
-                        </td>
-                        <td className={`py-3 text-right font-semibold ${m.type === 'OUT' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                          {m.type === 'OUT' ? '-' : '+'}{m.quantity}
-                        </td>
-                        <td className="py-3 text-zinc-500 dark:text-zinc-400 text-xs">
-                          {m.user?.name ?? '—'}
-                        </td>
-                        <td className="py-3 text-right text-xs text-zinc-400 dark:text-zinc-500">
-                          {new Date(m.createdAt).toLocaleDateString('tr-TR', {
-                            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-                          })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-550">
+            Hoş Geldiniz, {session?.user?.name || 'Kullanıcı'}
+          </h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            Depo operasyonları ve güncel envanter analitiği paneli.
+          </p>
         </div>
 
-        {/* Low Stock Alert + Quick Operations */}
-        <div className="space-y-6">
-          {/* Düşük Stok */}
-          {stats?.lowStockItems && stats.lowStockItems.length > 0 && (
-            <div className="p-5 rounded-2xl border border-rose-200/80 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-950/10 backdrop-blur-xl shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                <h3 className="text-sm font-bold text-rose-700 dark:text-rose-400">Düşük Stok Uyarıları</h3>
-              </div>
-              <ul className="space-y-2">
-                {stats.lowStockItems.slice(0, 5).map((item) => (
-                  <li key={item.id} className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-700 dark:text-zinc-300 font-medium truncate max-w-[150px]">
-                      {item.product.name}
-                    </span>
-                    <span className="text-rose-600 dark:text-rose-400 font-bold">
-                      {item.quantity} / {item.product.minStock}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="/stok" className="block text-center text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline pt-1">
-                Stok sayfasına git →
-              </Link>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Days Filter */}
+          <div className="inline-flex rounded-xl p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                onClick={() => setDaysFilter(d)}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                  daysFilter === d
+                    ? 'bg-white dark:bg-zinc-850 shadow-sm text-indigo-650 dark:text-indigo-400'
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                {d} Gün
+              </button>
+            ))}
+          </div>
 
-          {/* Hızlı İşlemler */}
-          <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Hızlı İşlemler</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <Link href="/stok" className="flex flex-col items-start p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/30 text-left hover:border-indigo-500 dark:hover:border-indigo-500 transition-all group">
-                <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Mal Kabul Yap</span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Depoya yeni ürün girişi kaydet</span>
-              </Link>
-              <Link href="/urunler" className="flex flex-col items-start p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/30 text-left hover:border-indigo-500 dark:hover:border-indigo-500 transition-all group">
-                <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Yeni Ürün Ekle</span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Kataloğa yeni bir SKU tanımla</span>
-              </Link>
-              <Link href="/lokasyonlar" className="flex flex-col items-start p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/30 text-left hover:border-indigo-500 dark:hover:border-indigo-500 transition-all group">
-                <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Lokasyon Ekle</span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Depo raf / bölge tanımla</span>
-              </Link>
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefresh}
+            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-250 transition-all active:scale-95"
+            title="Yenile"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {kpis.map((kpi) => {
+          const Icon = kpi.icon;
+          const colors = colorStyles[kpi.color as keyof typeof colorStyles];
+
+          return (
+            <div
+              key={kpi.title}
+              className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {kpi.title}
+                </span>
+                <div className={`p-2.5 rounded-xl border ${colors}`}>
+                  <Icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-1">
+                <span className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
+                  {kpi.value}
+                </span>
+                <p className="text-[11px] text-zinc-450 dark:text-zinc-500">{kpi.desc}</p>
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* Graphs Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Movement Trend Chart (AreaChart) */}
+        <div className="lg:col-span-2 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-500" />
+              <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
+                Stok Giriş / Çıkış Hareketi Trendi
+              </h2>
+            </div>
+            <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-650 dark:text-indigo-400 border border-indigo-150 px-2 py-0.5 rounded-full font-bold">
+              Son {daysFilter} Gün
+            </span>
+          </div>
+
+          <div className="h-80 w-full text-xs">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendQuery.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorIN" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorOUT" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" className="dark:stroke-zinc-800" />
+                <XAxis dataKey="date" stroke="#a1a1aa" tickLine={false} axisLine={false} />
+                <YAxis stroke="#a1a1aa" tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    borderRadius: '12px',
+                    borderColor: '#e4e4e7',
+                  }}
+                  itemStyle={{ fontSize: '11px' }}
+                />
+                <Legend iconType="circle" />
+                <Area
+                  type="monotone"
+                  dataKey="IN"
+                  name="Giriş (IN)"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorIN)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="OUT"
+                  name="Çıkış (OUT)"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorOUT)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Category Distribution (PieChart) */}
+        <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-emerald-500" />
+            <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">Kategori Dağılımı</h2>
+          </div>
+
+          <div className="h-80 w-full flex items-center justify-center text-xs">
+            {!categoryQuery.data?.length ? (
+              <p className="text-zinc-400 text-sm">Ürün dağılımı yok</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryQuery.data}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {categoryQuery.data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip itemStyle={{ fontSize: '11px' }} />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" iconSize={8} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Top Active Products (BarChart) */}
+        <div className="lg:col-span-2 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-amber-500" />
+            <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
+              En Aktif Ürünler (Son Stok Hareket Sayıları)
+            </h2>
+          </div>
+
+          <div className="h-80 w-full text-xs">
+            {!topProductsQuery.data?.length ? (
+              <div className="flex items-center justify-center h-full text-zinc-400 text-sm">Veri bulunamadı</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topProductsQuery.data} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" className="dark:stroke-zinc-800" />
+                  <XAxis dataKey="sku" stroke="#a1a1aa" tickLine={false} axisLine={false} />
+                  <YAxis stroke="#a1a1aa" tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', borderColor: '#e4e4e7' }}
+                    itemStyle={{ fontSize: '11px' }}
+                  />
+                  <Bar dataKey="movementCount" name="Hareket Sayısı" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Location Occupancy (Horizontal BarChart) */}
+        <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-rose-500" />
+            <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
+              En Dolu Lokasyonlar (%)
+            </h2>
+          </div>
+
+          <div className="h-80 w-full text-xs">
+            {!occupancyQuery.data?.length ? (
+              <div className="flex items-center justify-center h-full text-zinc-400 text-sm">Lokasyon kaydı bulunamadı</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={occupancyQuery.data}
+                  layout="vertical"
+                  margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f4f4f5" className="dark:stroke-zinc-800" />
+                  <XAxis type="number" stroke="#a1a1aa" domain={[0, 100]} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" stroke="#a1a1aa" tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', borderColor: '#e4e4e7' }}
+                    itemStyle={{ fontSize: '11px' }}
+                  />
+                  <Bar dataKey="rate" name="Doluluk Oranı (%)" fill="#ec4899" radius={[0, 4, 4, 0]} maxBarSize={15} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

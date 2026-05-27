@@ -25,6 +25,15 @@ export const createWarehouseSchema = z.object({
   timezone: z.string().default('Europe/Istanbul'),
 });
 
+/** Depo güncelleme */
+export const updateWarehouseSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1, 'Depo adı zorunludur').optional(),
+  address: z.string().nullable().optional(),
+  timezone: z.string().optional(),
+});
+
 export type CreateLocationInput = z.infer<typeof createLocationSchema>;
 export type UpdateLocationInput = z.infer<typeof updateLocationSchema>;
 export type CreateWarehouseInput = z.infer<typeof createWarehouseSchema>;
+export type UpdateWarehouseInput = z.infer<typeof updateWarehouseSchema>;

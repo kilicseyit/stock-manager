@@ -41,8 +41,8 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin, soon: false },
     { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck, soon: false },
     { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet, soon: false },
-    { name: 'Raporlar', href: '/raporlar', icon: BarChart3, soon: true },
-    { name: 'Ayarlar', href: '/dashboard/settings', icon: Settings, soon: false },
+    { name: 'Raporlar', href: '/raporlar', icon: BarChart3, soon: false },
+    { name: 'Ayarlar', href: '/ayarlar', icon: Settings, soon: false },
   ];
 
   const handleLogout = () => {
