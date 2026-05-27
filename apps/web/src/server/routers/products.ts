@@ -192,26 +192,41 @@ export const productRouter = router({
   deleteMany: publicProcedure
     .input(z.object({ ids: z.array(z.string()) }))
     .mutation(async ({ input }) => {
-      let successCount = 0;
-      let errorCount = 0;
+      const { ids } = input;
 
-      for (const id of input.ids) {
-        const movementCount = await prisma.stockMovement.count({
-          where: { productId: id },
+      // Stok hareketi olan ürünlerin ID'lerini tespit et
+      const movements = await prisma.stockMovement.findMany({
+        where: { productId: { in: ids } },
+        select: { productId: true },
+      });
+
+      const idsWithMovements = new Set(movements.map((m) => m.productId));
+      const idsToDelete = ids.filter((id) => !idsWithMovements.has(id));
+      const skippedCount = ids.length - idsToDelete.length;
+
+      if (idsToDelete.length > 0) {
+        // Stok kalemlerini toplu sil
+        await prisma.stockItem.deleteMany({
+          where: { productId: { in: idsToDelete } },
         });
 
-        if (movementCount > 0) {
-          errorCount++;
-          continue;
-        }
+        // Sipariş kalemlerini toplu sil
+        await prisma.purchaseOrderItem.deleteMany({
+          where: { productId: { in: idsToDelete } },
+        });
 
-        await prisma.stockItem.deleteMany({ where: { productId: id } });
-        await prisma.purchaseOrderItem.deleteMany({ where: { productId: id } });
-        await prisma.product.delete({ where: { id } });
-        successCount++;
+        // Ürünleri toplu sil
+        await prisma.product.deleteMany({
+          where: { id: { in: idsToDelete } },
+        });
       }
 
-      return { successCount, errorCount };
+      return {
+        successCount: idsToDelete.length,
+        errorCount: skippedCount,
+        deleted: idsToDelete.length,
+        skipped: skippedCount,
+      };
     }),
 
   /** Toplu ürün oluştur (CSV/Excel import) */
