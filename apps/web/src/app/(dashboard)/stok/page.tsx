@@ -18,7 +18,9 @@ import {
   Activity,
   ChevronDown,
   RefreshCw,
+  Upload,
 } from 'lucide-react';
+import StockMovementImportModal from '@/components/features/inventory/StockMovementImportModal';
 
 const movementTypeLabels: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   IN: { label: 'Giriş', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50', icon: ArrowDownToLine },
@@ -32,6 +34,7 @@ type TabView = 'grid' | 'history';
 export default function StokPage() {
   const [tab, setTab] = useState<TabView>('grid');
   const [showForm, setShowForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('');
 
   // BroadcastChannel — cross-tab real-time updates
@@ -103,10 +106,17 @@ export default function StokPage() {
               utils.inventory.getHistory.invalidate();
               utils.inventory.getDashboardStats.invalidate();
             }}
-            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
             title="Yenile"
           >
             <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-650 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800 font-medium text-sm transition-all"
+          >
+            <Upload className="w-4 h-4 text-emerald-500" />
+            Toplu Hareket Yükle
           </button>
           <button
             onClick={() => setShowForm(true)}
@@ -117,8 +127,6 @@ export default function StokPage() {
           </button>
         </div>
       </div>
-
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Toplam Ürün */}
         <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 p-5">
@@ -343,6 +351,19 @@ export default function StokPage() {
           onClose={() => setShowForm(false)}
         />
       )}
+
+      {/* Bulk Stock Movement Import Modal */}
+      <StockMovementImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          utils.inventory.getStock.invalidate();
+          utils.inventory.getHistory.invalidate();
+          utils.inventory.getDashboardStats.invalidate();
+        }}
+      />
     </div>
   );
 }
+
+

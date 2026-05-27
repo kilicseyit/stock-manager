@@ -134,6 +134,41 @@ export const locationRouter = router({
       return prisma.location.delete({ where: { id: input.id } });
     }),
 
+  /** Toplu lokasyon sil */
+  deleteMany: publicProcedure
+    .input(z.object({ ids: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const id of input.ids) {
+        const stockCount = await prisma.stockItem.count({
+          where: { locationId: id, quantity: { gt: 0 } },
+        });
+
+        const movementCount = await prisma.stockMovement.count({
+          where: {
+            OR: [
+              { fromLocationId: id },
+              { toLocationId: id },
+            ],
+          },
+        });
+
+        if (stockCount > 0 || movementCount > 0) {
+          errorCount++;
+          continue;
+        }
+
+        // Sıfır miktarlı stockItem'ları sil
+        await prisma.stockItem.deleteMany({ where: { locationId: id } });
+        await prisma.location.delete({ where: { id } });
+        successCount++;
+      }
+
+      return { successCount, errorCount };
+    }),
+
   // --- Depo (Warehouse) ---
 
   /** Tüm depolar */

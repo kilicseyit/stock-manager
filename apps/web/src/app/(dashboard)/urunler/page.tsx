@@ -60,6 +60,10 @@ export default function ProductsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
 
+  // Selection & Bulk Delete state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+
   // Success alert state
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -110,6 +114,22 @@ export default function ProductsPage() {
     onError: (err) => {
       triggerAlert('error', `Ürün silinemedi: ${err.message}`);
       setProductToDelete(null);
+    }
+  });
+
+  const deleteManyProduct = trpc.product.deleteMany.useMutation({
+    onSuccess: (data) => {
+      triggerAlert(
+        data.errorCount > 0 ? 'error' : 'success',
+        `${data.successCount} ürün başarıyla silindi, ${data.errorCount} ürün atlandı (bağlı stok hareketi var).`
+      );
+      setSelectedIds([]);
+      handleResetSearch();
+      setIsBulkDeleteOpen(false);
+    },
+    onError: (err) => {
+      triggerAlert('error', `Toplu silme sırasında hata: ${err.message}`);
+      setIsBulkDeleteOpen(false);
     }
   });
 
@@ -313,7 +333,7 @@ export default function ProductsPage() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-100 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 font-semibold text-xs uppercase tracking-wider">
-                    <th className="pb-4 font-semibold w-14">Görsel</th>
+                    <th className="pb-4 pl-4 font-semibold w-14 border-l-2 border-transparent">Görsel</th>
                     <th className="pb-4 font-semibold w-32">SKU</th>
                     <th className="pb-4 font-semibold">Ürün Adı</th>
                     <th className="pb-4 font-semibold">Kategori</th>
@@ -328,132 +348,152 @@ export default function ProductsPage() {
                     const totalStock = getProductStock(product.stockItems);
                     const isOutOfStock = totalStock === 0;
                     const isLowStock = totalStock <= product.minStock;
+                    const isSelected = selectedIds.includes(product.id);
 
                     return (
                       <tr 
                         key={product.id} 
-                        className="text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50/40 dark:hover:bg-zinc-850/10 group transition-all"
+                        onClick={() => {
+                          setSelectedIds((prev) => 
+                            prev.includes(product.id) 
+                              ? prev.filter((id) => id !== product.id) 
+                              : [...prev, product.id]
+                          );
+                        }}
+                        className={`text-zinc-700 dark:text-zinc-300 transition-all select-none cursor-pointer group ${
+                          isSelected
+                            ? 'bg-indigo-50/20 dark:bg-indigo-950/10'
+                            : 'hover:bg-zinc-50/40 dark:hover:bg-zinc-850/10'
+                        }`}
                       >
                         {/* Thumbnail Image */}
-                        <td className="py-3.5">
+                        <td className={`py-3.5 pl-4 transition-all duration-200 ${
+                          isSelected ? 'border-l-2 border-indigo-600 dark:border-indigo-500' : 'border-l-2 border-transparent'
+                        }`}>
                           {product.imageUrl ? (
                             <div className="w-10 h-10 rounded-xl overflow-hidden border border-zinc-200/50 dark:border-zinc-700/50 bg-white">
                               <img
-                                src={product.imageUrl}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-450 dark:text-zinc-500 border border-transparent dark:border-zinc-800">
-                              <Package className="w-4.5 h-4.5" />
-                            </div>
-                          )}
-                        </td>
-
-                        {/* SKU Badge */}
-                        <td className="py-3.5">
-                          <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/30 dark:border-zinc-750 text-zinc-800 dark:text-zinc-200">
-                            {product.sku}
-                          </span>
-                        </td>
-
-                        {/* Name & Barcode */}
-                        <td className="py-3.5 pr-4">
-                          <div>
-                            <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm truncate block max-w-xs sm:max-w-md">
-                              {product.name}
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-450 dark:text-zinc-500 border border-transparent dark:border-zinc-800">
+                                <Package className="w-4.5 h-4.5" />
+                              </div>
+                            )}
+                          </td>
+  
+                          {/* SKU Badge */}
+                          <td className="py-3.5">
+                            <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/30 dark:border-zinc-750 text-zinc-800 dark:text-zinc-200">
+                              {product.sku}
                             </span>
-                            {product.barcode && (
-                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5 block">
-                                Barkod: {product.barcode}
+                          </td>
+  
+                          {/* Name & Barcode */}
+                          <td className="py-3.5 pr-4">
+                            <div>
+                              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm truncate block max-w-xs sm:max-w-md">
+                                {product.name}
+                              </span>
+                              {product.barcode && (
+                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5 block">
+                                  Barkod: {product.barcode}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+  
+                          {/* Category Badge */}
+                          <td className="py-3.5">
+                            {product.category ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                {product.category.name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-zinc-400 dark:text-zinc-650">
+                                (Yok)
                               </span>
                             )}
-                          </div>
-                        </td>
-
-                        {/* Category Badge */}
-                        <td className="py-3.5">
-                          {product.category ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                              {product.category.name}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-zinc-400 dark:text-zinc-650">
-                              (Yok)
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Current Stock */}
-                        <td className="py-3.5 text-right font-bold">
-                          {isOutOfStock ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-450 border border-rose-100/50 dark:border-rose-900/20">
-                              Stok Yok
-                            </span>
-                          ) : isLowStock ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-450 border border-amber-100/50 dark:border-amber-900/20">
-                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                              {totalStock} {product.unit}
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 border border-emerald-100/50 dark:border-emerald-900/20">
-                              {totalStock} {product.unit}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Minimum Stock Limit */}
-                        <td className="py-3.5 text-right text-zinc-500 dark:text-zinc-400 font-medium">
-                          {product.minStock}
-                        </td>
-
-                        {/* Unit Name */}
-                        <td className="py-3.5 text-center text-xs text-zinc-400 dark:text-zinc-500 capitalize">
-                          {product.unit}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleEditClick(product)}
-                              className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
-                              title="Düzenle"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            
-                            <button
-                              onClick={() => setProductToDelete(product)}
-                              className="p-2 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
-                              title="Sil"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Load More Pagination */}
-            {queryData?.nextCursor && (
-              <div className="flex justify-center pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  onClick={handleLoadMore}
-                  disabled={isFetching}
-                  className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-zinc-350 dark:hover:border-zinc-650 bg-white dark:bg-zinc-900 hover:bg-zinc-550 dark:hover:bg-zinc-850 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  {isFetching && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Daha Fazla Yükle
-                </button>
+                          </td>
+  
+                          {/* Current Stock */}
+                          <td className="py-3.5 text-right font-bold">
+                            {isOutOfStock ? (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-450 border border-rose-100/50 dark:border-rose-900/20">
+                                Stok Yok
+                              </span>
+                            ) : isLowStock ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-450 border border-amber-100/50 dark:border-amber-900/20">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                {totalStock} {product.unit}
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 border border-emerald-100/50 dark:border-emerald-900/20">
+                                {totalStock} {product.unit}
+                              </span>
+                            )}
+                          </td>
+  
+                          {/* Minimum Stock Limit */}
+                          <td className="py-3.5 text-right text-zinc-500 dark:text-zinc-400 font-medium">
+                            {product.minStock}
+                          </td>
+  
+                          {/* Unit Name */}
+                          <td className="py-3.5 text-center text-xs text-zinc-400 dark:text-zinc-500 capitalize">
+                            {product.unit}
+                          </td>
+  
+                          {/* Actions */}
+                          <td className="py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditClick(product);
+                                }}
+                                className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
+                                title="Düzenle"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProductToDelete(product);
+                                }}
+                                className="p-2 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
+                                title="Sil"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+  
+              {/* Load More Pagination */}
+              {queryData?.nextCursor && (
+                <div className="flex justify-center pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isFetching}
+                    className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-zinc-350 dark:hover:border-zinc-650 bg-white dark:bg-zinc-900 hover:bg-zinc-550 dark:hover:bg-zinc-850 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isFetching && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Daha Fazla Yükle
+                  </button>
+                </div>
+              )}
+            </div>
         )}
       </div>
 
@@ -486,6 +526,45 @@ export default function ProductsPage() {
         title="Ürünü Sil"
         description={`"${productToDelete?.name}" (${productToDelete?.sku}) ürününü silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm stok verileri temizlenir.`}
       />
+
+      {/* Bulk Delete Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onConfirm={() => deleteManyProduct.mutate({ ids: selectedIds })}
+        isLoading={deleteManyProduct.isPending}
+        title="Seçilen Ürünleri Sil"
+        description={`Seçilen ${selectedIds.length} ürünü silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve bağlı stok hareketi bulunan ürünler silinmeyip atlanacaktır.`}
+      />
+
+      {/* Floating Action Toolbar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-50 min-w-[320px] sm:min-w-[450px] animate-slideUp">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/55 text-indigo-600 dark:text-indigo-400">
+              <Package className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              {selectedIds.length} ürün seçildi
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
+            >
+              Seçimi Temizle
+            </button>
+            <button
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-rose-500/10 active:scale-[0.98]"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Seçilenleri Sil
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

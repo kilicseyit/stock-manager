@@ -8,17 +8,16 @@ import { trpc } from '@/trpc/client';
 
 interface ImportRow {
   index: number;
-  name: string;
-  categoryName?: string;
-  unit?: string;
-  barcode?: string;
-  minStock?: number;
-  maxStock?: number;
+  sku: string;
+  zone: string;
+  quantity: number;
+  type: string;
+  reason?: string;
   isValid: boolean;
   error?: string;
 }
 
-export default function ImportModal({
+export default function StockMovementImportModal({
   isOpen,
   onClose,
   onSuccess,
@@ -29,12 +28,12 @@ export default function ImportModal({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsedRows, setParsedRows] = useState<ImportRow[]>([]);
-  const [importResults, setImportResults] = useState<{ index: number; success: boolean; sku?: string; error?: string }[] | null>(null);
+  const [importResults, setImportResults] = useState<{ index: number; success: boolean; error?: string }[] | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [step, setStep] = useState<'upload' | 'preview' | 'result'>('upload');
   const [importOnlyValid, setImportOnlyValid] = useState<boolean>(true);
 
-  const bulkCreate = trpc.product.bulkCreate.useMutation({
+  const bulkCreateMovements = trpc.inventory.bulkCreateMovements.useMutation({
     onSuccess: (data) => {
       setImportResults(data.results);
       setStep('result');
@@ -76,63 +75,50 @@ export default function ImportModal({
 
   const processRows = (data: Record<string, unknown>[]) => {
     const rows: ImportRow[] = [];
-    const barcodesSeen = new Set<string>();
 
     data.forEach((raw, i) => {
       const rowNum = i + 2;
 
-      // Sütun adı eşleşmeleri (Türkçe / İngilizce)
-      const name = String(raw['Ürün Adı'] ?? raw['name'] ?? raw['urun_adi'] ?? '').trim();
-      const categoryName = String(raw['Kategori'] ?? raw['categoryName'] ?? raw['kategori'] ?? '').trim() || undefined;
-      const unit = String(raw['Birim'] ?? raw['unit'] ?? raw['birim'] ?? 'adet').trim();
-      const barcode = String(raw['Barkod'] ?? raw['barcode'] ?? raw['barkod'] ?? '').trim() || undefined;
-      const minStockRaw = raw['Min Stok'] ?? raw['minStock'] ?? raw['min_stok'] ?? 0;
-      const maxStockRaw = raw['Max Stok'] ?? raw['maxStock'] ?? raw['max_stok'];
+      // Sütun adı eşleşmeleri
+      const sku = String(raw['ProductSKU'] ?? raw['sku'] ?? raw['Ürün SKU'] ?? raw['urun_sku'] ?? '').trim();
+      const zone = String(raw['LocationZone'] ?? raw['zone'] ?? raw['Depo Raf Bölgesi'] ?? raw['lokasyon_bolgesi'] ?? '').trim();
+      const quantityRaw = raw['Quantity'] ?? raw['quantity'] ?? raw['Miktar'] ?? raw['miktar'];
+      const type = String(raw['Type'] ?? raw['type'] ?? raw['Hareket Türü'] ?? raw['hareket_turu'] ?? '').trim().toUpperCase();
+      const reason = String(raw['Reason'] ?? raw['reason'] ?? raw['Açıklama'] ?? raw['aciklama'] ?? '').trim() || undefined;
 
       let isValid = true;
       let error = '';
 
-      // Validation
-      if (!name) {
+      if (!sku) {
         isValid = false;
-        error = 'Ürün adı boş olamaz.';
+        error = 'Ürün SKU boş olamaz.';
       }
 
-      const minStock = Number(minStockRaw);
-      if (isNaN(minStock) || minStock < 0) {
+      if (!zone) {
         isValid = false;
-        error = error ? `${error} Min stok 0 veya daha büyük bir sayı olmalı.` : 'Min stok 0 veya daha büyük bir sayı olmalı.';
+        error = error ? `${error} Lokasyon bölgesi (Zone) boş olamaz.` : 'Lokasyon bölgesi (Zone) boş olamaz.';
       }
 
-      let maxStock: number | undefined = undefined;
-      if (maxStockRaw !== undefined && maxStockRaw !== null && String(maxStockRaw).trim() !== '') {
-        maxStock = Number(maxStockRaw);
-        if (isNaN(maxStock) || maxStock < 0) {
-          isValid = false;
-          error = error ? `${error} Max stok geçerli bir pozitif sayı olmalı.` : 'Max stok geçerli bir pozitif sayı olmalı.';
-        } else if (maxStock < minStock) {
-          isValid = false;
-          error = error ? `${error} Max stok min stoktan küçük olamaz.` : 'Max stok min stoktan küçük olamaz.';
-        }
+      const quantity = Number(quantityRaw);
+      if (isNaN(quantity) || quantity <= 0) {
+        isValid = false;
+        error = error ? `${error} Miktar sıfırdan büyük bir sayı olmalı.` : 'Miktar sıfırdan büyük bir sayı olmalı.';
       }
 
-      if (barcode) {
-        if (barcodesSeen.has(barcode)) {
-          isValid = false;
-          error = error ? `${error} Dosya içinde mükerrer barkod: ${barcode}.` : `Dosya içinde mükerrer barkod: ${barcode}.`;
-        } else {
-          barcodesSeen.add(barcode);
-        }
+      if (!type || !['IN', 'OUT', 'ADJUSTMENT'].includes(type)) {
+        isValid = false;
+        error = error
+          ? `${error} Geçersiz hareket türü (${type || 'Boş'}). Sadece IN, OUT veya ADJUSTMENT olmalıdır.`
+          : `Geçersiz hareket türü (${type || 'Boş'}). Sadece IN, OUT veya ADJUSTMENT olmalıdır.`;
       }
 
       rows.push({
         index: rowNum,
-        name,
-        categoryName,
-        unit,
-        barcode,
-        minStock: isNaN(minStock) ? 0 : minStock,
-        maxStock,
+        sku,
+        zone,
+        quantity: isNaN(quantity) ? 0 : quantity,
+        type,
+        reason,
         isValid,
         error: error || undefined,
       });
@@ -150,43 +136,41 @@ export default function ImportModal({
       return;
     }
 
-    bulkCreate.mutate({
-      products: rowsToImport.map((r) => ({
-        name: r.name,
-        categoryName: r.categoryName,
-        unit: r.unit ?? 'adet',
-        barcode: r.barcode,
-        minStock: r.minStock ?? 0,
-        maxStock: r.maxStock,
+    bulkCreateMovements.mutate({
+      movements: rowsToImport.map((r) => ({
+        sku: r.sku,
+        zone: r.zone,
+        quantity: r.quantity,
+        type: r.type as 'IN' | 'OUT' | 'ADJUSTMENT',
+        reason: r.reason,
       })),
     });
   };
 
-  // Excel Şablonu İndir (Örnek verilerle doldurulmuş)
+  // Excel Şablonu İndir
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Urun_Sablonu');
+    const worksheet = workbook.addWorksheet('Stok_Hareketi_Sablonu');
 
     worksheet.columns = [
-      { header: 'Ürün Adı', key: 'name', width: 25 },
-      { header: 'Kategori', key: 'categoryName', width: 20 },
-      { header: 'Birim', key: 'unit', width: 12 },
-      { header: 'Barkod', key: 'barcode', width: 18 },
-      { header: 'Min Stok', key: 'minStock', width: 12 },
-      { header: 'Max Stok', key: 'maxStock', width: 12 },
+      { header: 'ProductSKU', key: 'sku', width: 18 },
+      { header: 'LocationZone', key: 'zone', width: 18 },
+      { header: 'Quantity', key: 'quantity', width: 12 },
+      { header: 'Type', key: 'type', width: 12 },
+      { header: 'Reason', key: 'reason', width: 25 },
     ];
 
-    // Örnek Veri Ekle
-    worksheet.addRow({ name: 'Akıllı Saat X', categoryName: 'Elektronik', unit: 'adet', barcode: '8680000000990', minStock: 5, maxStock: 50 });
-    worksheet.addRow({ name: 'Ofis Çalışma Masası', categoryName: 'Mobilya', unit: 'adet', barcode: '8680000000991', minStock: 2, maxStock: 20 });
-    worksheet.addRow({ name: 'A4 Kağıt 80g', categoryName: 'Kırtasiye', unit: 'paket', barcode: '8680000000992', minStock: 10, maxStock: 100 });
+    // Örnek Veriler Ekle
+    worksheet.addRow({ sku: 'SM-000001', zone: 'A', quantity: 15, type: 'IN', reason: 'Toplu sayım girişi' });
+    worksheet.addRow({ sku: 'SM-000002', zone: 'B', quantity: 2, type: 'OUT', reason: 'Ofis içi tüketim çıkışı' });
+    worksheet.addRow({ sku: 'SM-000003', zone: 'A', quantity: 5, type: 'ADJUSTMENT', reason: 'Envanter düzeltme' });
 
-    // Header stili
+    // Header stili (Yeşil)
     worksheet.getRow(1).font = { name: 'Arial', family: 4, size: 11, bold: true, color: { argb: 'FFFFFF' } };
     worksheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: '10B981' }, // Yeşil başlık
+      fgColor: { argb: '10B981' },
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -194,7 +178,7 @@ export default function ImportModal({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'urun_ithalat_sablonu.xlsx';
+    a.download = 'stok_hareket_ithalat_sablonu.xlsx';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -224,7 +208,7 @@ export default function ImportModal({
               <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-              Toplu Ürün İçe Aktarma (Gelişmiş)
+              Toplu Stok Hareketi İçe Aktarma
             </h2>
           </div>
           <button onClick={handleClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
@@ -238,8 +222,8 @@ export default function ImportModal({
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/20 p-4 rounded-xl border border-zinc-150 dark:border-zinc-850">
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Ürün Şablon Dosyası</p>
-                  <p className="text-xs text-zinc-500">Doğru kolon yapısı ve örnek verileri içeren şablonu indirin.</p>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Stok Hareketi Şablonu</p>
+                  <p className="text-xs text-zinc-500">Doğru kolon yapısı ve örnek hareketleri içeren şablonu indirin.</p>
                 </div>
                 <button
                   onClick={downloadTemplate}
@@ -303,23 +287,22 @@ export default function ImportModal({
                       onChange={(e) => setImportOnlyValid(e.target.checked)}
                       className="rounded text-indigo-650 focus:ring-indigo-500"
                     />
-                    Dosyadaki hatalı satırları atla, sadece geçerli olan {totalValid} ürünü içe aktar.
+                    Hatalı satırları atla, sadece geçerli olan {totalValid} hareketi içe aktar.
                   </label>
                 </div>
               )}
 
-              {/* Preview table with Validation status */}
+              {/* Preview table */}
               <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-bold uppercase text-[10px] tracking-wider">
                     <tr className="border-b border-zinc-200 dark:border-zinc-800">
                       <th className="px-3 py-3 text-center">Satır</th>
-                      <th className="px-3 py-3">Ürün Adı</th>
-                      <th className="px-3 py-3">Kategori</th>
-                      <th className="px-3 py-3">Birim</th>
-                      <th className="px-3 py-3">Barkod</th>
-                      <th className="px-3 py-3 text-right">Min</th>
-                      <th className="px-3 py-3 text-right">Max</th>
+                      <th className="px-3 py-3">Ürün SKU</th>
+                      <th className="px-3 py-3">Lokasyon Rafı (Zone)</th>
+                      <th className="px-3 py-3 text-center">Miktar</th>
+                      <th className="px-3 py-3 text-center">Tür</th>
+                      <th className="px-3 py-3">Açıklama</th>
                       <th className="px-3 py-3">Doğrulama Durumu</th>
                     </tr>
                   </thead>
@@ -334,12 +317,11 @@ export default function ImportModal({
                         }`}
                       >
                         <td className="px-3 py-2 text-center font-mono font-semibold">{row.index}</td>
-                        <td className="px-3 py-2 font-semibold">{row.name || '—'}</td>
-                        <td className="px-3 py-2">{row.categoryName || '—'}</td>
-                        <td className="px-3 py-2 text-xs">{row.unit}</td>
-                        <td className="px-3 py-2 font-mono">{row.barcode || '—'}</td>
-                        <td className="px-3 py-2 text-right font-semibold">{row.minStock}</td>
-                        <td className="px-3 py-2 text-right font-semibold">{row.maxStock || '—'}</td>
+                        <td className="px-3 py-2 font-mono font-semibold">{row.sku || '—'}</td>
+                        <td className="px-3 py-2 font-semibold">{row.zone || '—'}</td>
+                        <td className="px-3 py-2 text-center font-semibold">{row.quantity}</td>
+                        <td className="px-3 py-2 text-center font-bold text-xs">{row.type || '—'}</td>
+                        <td className="px-3 py-2 text-zinc-500 max-w-[150px] truncate" title={row.reason}>{row.reason || '—'}</td>
                         <td className="px-3 py-2">
                           {row.isValid ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full border border-emerald-100">
@@ -364,11 +346,11 @@ export default function ImportModal({
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={bulkCreate.isPending || (totalErrors > 0 && !importOnlyValid)}
+                  disabled={bulkCreateMovements.isPending || (totalErrors > 0 && !importOnlyValid)}
                   className="px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-750 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 shadow-md shadow-indigo-650/20"
                 >
-                  {bulkCreate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {importOnlyValid ? `${totalValid} Adet Geçerli Satırı İçe Aktar` : `${parsedRows.length} Adet Ürünü İçe Aktar`}
+                  {bulkCreateMovements.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {importOnlyValid ? `${totalValid} Adet Hareketi İçe Aktar` : `${parsedRows.length} Adet Hareketi İçe Aktar`}
                 </button>
               </div>
             </div>
@@ -381,10 +363,10 @@ export default function ImportModal({
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <div>
                   <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                    Ürün içe aktarma işlemi tamamlandı.
+                    Stok hareketi içe aktarma işlemi tamamlandı.
                   </p>
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                    {importResults.filter((r) => r.success).length} başarılı envanter kaydı, {importResults.filter((r) => !r.success).length} hatalı kayıt.
+                    {importResults.filter((r) => r.success).length} başarılı envanter hareketi, {importResults.filter((r) => !r.success).length} hatalı işlem.
                   </p>
                 </div>
               </div>

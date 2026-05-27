@@ -188,6 +188,32 @@ export const productRouter = router({
       return prisma.product.delete({ where: { id: input.id } });
     }),
 
+  /** Toplu ürün sil */
+  deleteMany: publicProcedure
+    .input(z.object({ ids: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const id of input.ids) {
+        const movementCount = await prisma.stockMovement.count({
+          where: { productId: id },
+        });
+
+        if (movementCount > 0) {
+          errorCount++;
+          continue;
+        }
+
+        await prisma.stockItem.deleteMany({ where: { productId: id } });
+        await prisma.purchaseOrderItem.deleteMany({ where: { productId: id } });
+        await prisma.product.delete({ where: { id } });
+        successCount++;
+      }
+
+      return { successCount, errorCount };
+    }),
+
   /** Toplu ürün oluştur (CSV/Excel import) */
   bulkCreate: publicProcedure
     .input(z.object({ products: z.array(bulkProductSchema) }))
@@ -240,6 +266,20 @@ export const productRouter = router({
 
       const successCount = results.filter((r) => r.success).length;
       const errorCount = results.filter((r) => !r.success).length;
+
+      // Sistemde kayıtlı ilk kullanıcıyı alıp logu onun adına kaydet
+      const user = await prisma.user.findFirst();
+      if (user) {
+        await prisma.importLog.create({
+          data: {
+            userId: user.id,
+            type: 'PRODUCT',
+            totalRows: input.products.length,
+            successRows: successCount,
+            errorRows: errorCount,
+          },
+        });
+      }
 
       return { results, successCount, errorCount };
     }),

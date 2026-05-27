@@ -35,6 +35,11 @@ export default function TedarikcilerPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
 
+  // Selection & Bulk Delete state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
   const utils = trpc.useUtils();
 
   // Queries
@@ -67,6 +72,24 @@ export default function TedarikcilerPage() {
       utils.supplier.getAll.invalidate();
       setDeleteId(null);
     },
+  });
+
+  const deleteManySupplier = trpc.supplier.deleteMany.useMutation({
+    onSuccess: (data) => {
+      setAlertMessage({
+        type: data.errorCount > 0 ? 'error' : 'success',
+        text: `${data.successCount} tedarikçi başarıyla silindi, ${data.errorCount} tedarikçi atlandı (bağlı sipariş var).`
+      });
+      setTimeout(() => setAlertMessage(null), 5000);
+      setSelectedIds([]);
+      utils.supplier.getAll.invalidate();
+      setIsBulkDeleteOpen(false);
+    },
+    onError: (err) => {
+      setAlertMessage({ type: 'error', text: `Toplu silme sırasında hata: ${err.message}` });
+      setTimeout(() => setAlertMessage(null), 5000);
+      setIsBulkDeleteOpen(false);
+    }
   });
 
   const {
@@ -169,7 +192,18 @@ export default function TedarikcilerPage() {
         </div>
       </div>
 
-      {/* Suppliers Table */}
+      {/* Alert Message Banner */}
+      {alertMessage && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between text-sm font-semibold ${
+          alertMessage.type === 'success'
+            ? 'bg-emerald-50 text-emerald-805 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30'
+            : 'bg-rose-50 text-rose-805 border-rose-200 dark:bg-rose-950/20 dark:text-rose-450 dark:border-rose-900/30'
+        }`}>
+          <span>{alertMessage.text}</span>
+          <button onClick={() => setAlertMessage(null)} className="text-xs underline hover:no-underline">Kapat</button>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-xl overflow-hidden shadow-sm">
         {suppliersQuery.isLoading ? (
           <div className="p-8 space-y-4">
@@ -187,9 +221,9 @@ export default function TedarikcilerPage() {
             <table className="w-full text-sm text-left">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20 text-zinc-600 dark:text-zinc-400 font-medium">
-                  <th className="px-6 py-4">Tedarikçi Adı</th>
-                  <th className="px-6 py-4">İletişim Kişisi</th>
-                  <th className="px-6 py-4">İletişim Bilgileri</th>
+                  <th className="px-6 py-4 font-semibold border-l-2 border-transparent">Tedarikçi Adı</th>
+                  <th className="px-6 py-4 font-semibold">İletişim Kişisi</th>
+                  <th className="px-6 py-4 font-semibold">İletişim Bilgileri</th>
                   <th className="px-6 py-4 text-center">Değerlendirme</th>
                   <th className="px-6 py-4 text-center">Toplam Sipariş</th>
                   <th className="px-6 py-4 text-center">Teslim Oranı</th>
@@ -197,88 +231,113 @@ export default function TedarikcilerPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
-                {suppliersQuery.data.items.map((supplier) => (
-                  <tr
-                    key={supplier.id}
-                    className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => setSelectedSupplierId(supplier.id)}
-                        className="font-bold text-zinc-900 dark:text-zinc-50 hover:text-indigo-600 dark:hover:text-indigo-400 text-left hover:underline transition-colors"
-                      >
-                        {supplier.name}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>{supplier.contactName || '—'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1 text-xs">
-                        {supplier.email && (
-                          <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                            <Mail className="w-3 h-3" />
-                            <span>{supplier.email}</span>
+                {suppliersQuery.data.items.map((supplier) => {
+                  const isSelected = selectedIds.includes(supplier.id);
+                  return (
+                    <tr
+                      key={supplier.id}
+                      onClick={() => {
+                        setSelectedIds((prev) => 
+                          prev.includes(supplier.id) 
+                            ? prev.filter((id) => id !== supplier.id) 
+                            : [...prev, supplier.id]
+                        );
+                      }}
+                      className={`transition-colors select-none cursor-pointer group ${
+                        isSelected
+                          ? 'bg-indigo-50/20 dark:bg-indigo-950/10'
+                          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/20'
+                      }`}
+                    >
+                      <td className={`px-6 py-4 transition-all duration-200 ${
+                        isSelected ? 'border-l-2 border-indigo-600 dark:border-indigo-500' : 'border-l-2 border-transparent'
+                      }`}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSupplierId(supplier.id);
+                          }}
+                          className="font-bold text-zinc-900 dark:text-zinc-50 hover:text-indigo-600 dark:hover:text-indigo-400 text-left hover:underline transition-colors"
+                        >
+                          {supplier.name}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>{supplier.contactName || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1 text-xs">
+                          {supplier.email && (
+                            <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
+                              <Mail className="w-3 h-3" />
+                              <span>{supplier.email}</span>
+                            </div>
+                          )}
+                          {supplier.phone && (
+                            <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
+                              <Phone className="w-3 h-3" />
+                              <span>{supplier.phone}</span>
+                            </div>
+                          )}
+                          {!supplier.email && !supplier.phone && <span className="text-zinc-400">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <div className="flex items-center gap-0.5 text-amber-400">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-3.5 h-3.5 ${
+                                  i < supplier.rating ? 'fill-amber-400' : 'text-zinc-200 dark:text-zinc-800'
+                                }`}
+                              />
+                            ))}
                           </div>
-                        )}
-                        {supplier.phone && (
-                          <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                            <Phone className="w-3 h-3" />
-                            <span>{supplier.phone}</span>
-                          </div>
-                        )}
-                        {!supplier.email && !supplier.phone && <span className="text-zinc-400">—</span>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-center">
-                        <div className="flex items-center gap-0.5 text-amber-400">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-3.5 h-3.5 ${
-                                i < supplier.rating ? 'fill-amber-400' : 'text-zinc-200 dark:text-zinc-800'
-                              }`}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center font-semibold text-zinc-900 dark:text-zinc-550">
+                        {supplier.stats.totalOrders}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                            %{supplier.stats.fulfillmentRate}
+                          </span>
+                          <div className="w-16 h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${supplier.stats.fulfillmentRate}%` }}
                             />
-                          ))}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center font-semibold text-zinc-900 dark:text-zinc-50">
-                      {supplier.stats.totalOrders}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                          %{supplier.stats.fulfillmentRate}
-                        </span>
-                        <div className="w-16 h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full"
-                            style={{ width: `${supplier.stats.fulfillmentRate}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-1.5">
-                      <button
-                        onClick={() => openEditForm(supplier)}
-                        className="p-2 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteId(supplier.id)}
-                        className="p-2 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditForm(supplier);
+                          }}
+                          className="p-2 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteId(supplier.id);
+                          }}
+                          className="p-2 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -529,6 +588,46 @@ export default function TedarikcilerPage() {
           onClose={() => setDeleteId(null)}
           isLoading={deleteSupplier.isPending}
         />
+      )}
+
+      {isBulkDeleteOpen && (
+        <DeleteConfirmDialog
+          isOpen={isBulkDeleteOpen}
+          title="Seçilen Tedarikçileri Sil"
+          description={`Seçilen ${selectedIds.length} tedarikçiyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve bağlı satın alma siparişi bulunan tedarikçiler silinmeyip atlanacaktır.`}
+          onConfirm={() => deleteManySupplier.mutate({ ids: selectedIds })}
+          onClose={() => setIsBulkDeleteOpen(false)}
+          isLoading={deleteManySupplier.isPending}
+        />
+      )}
+
+      {/* Floating Action Toolbar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-50 min-w-[320px] sm:min-w-[450px] animate-slideUp">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/55 text-indigo-600 dark:text-indigo-400">
+              <Truck className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              {selectedIds.length} tedarikçi seçildi
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
+            >
+              Seçimi Temizle
+            </button>
+            <button
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-rose-500/10 active:scale-[0.98]"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Seçilenleri Sil
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -314,4 +314,34 @@ export const analyticsRouter = router({
       };
     });
   }),
+
+  /** RAPOR 4: Tüm Ürün/Lokasyon Stok Snapshot Listesi */
+  getStockSnapshot: publicProcedure.query(async () => {
+    const stockItems = await prisma.stockItem.findMany({
+      include: {
+        product: { select: { name: true, sku: true, unit: true } },
+        location: { select: { zone: true, aisle: true, shelf: true, bin: true } },
+      },
+      orderBy: [{ product: { name: 'asc' } }, { location: { zone: 'asc' } }],
+    });
+
+    return stockItems.map((item) => ({
+      productName: item.product.name,
+      productSku: item.product.sku,
+      location: `${item.location.zone}-${item.location.aisle || 'x'}-${item.location.shelf || 'x'}-${item.location.bin || 'x'}`,
+      quantity: item.quantity,
+      reservedQty: item.reservedQty,
+      unit: item.product.unit,
+    }));
+  }),
+
+  /** İçe aktarma geçmişi logları */
+  getImportLogs: publicProcedure.query(async () => {
+    return prisma.importLog.findMany({
+      include: {
+        user: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }),
 });

@@ -19,6 +19,11 @@ export default function LokasyonlarPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Selection & Bulk Delete state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
   const utils = trpc.useUtils();
 
   // Queries
@@ -45,6 +50,24 @@ export default function LokasyonlarPage() {
       utils.location.getAll.invalidate();
       setDeleteId(null);
     },
+  });
+
+  const deleteManyLocation = trpc.location.deleteMany.useMutation({
+    onSuccess: (data) => {
+      setAlertMessage({
+        type: data.errorCount > 0 ? 'error' : 'success',
+        text: `${data.successCount} lokasyon başarıyla silindi, ${data.errorCount} lokasyon atlandı (bağlı stok veya hareket var).`
+      });
+      setTimeout(() => setAlertMessage(null), 5000);
+      setSelectedIds([]);
+      utils.location.getAll.invalidate();
+      setIsBulkDeleteOpen(false);
+    },
+    onError: (err) => {
+      setAlertMessage({ type: 'error', text: `Toplu silme sırasında hata: ${err.message}` });
+      setTimeout(() => setAlertMessage(null), 5000);
+      setIsBulkDeleteOpen(false);
+    }
   });
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<LocationFormValues>({
@@ -108,6 +131,18 @@ export default function LokasyonlarPage() {
         </button>
       </div>
 
+      {/* Alert Message Banner */}
+      {alertMessage && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between text-sm font-semibold ${
+          alertMessage.type === 'success'
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30'
+            : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/20 dark:text-rose-450 dark:border-rose-900/30'
+        }`}>
+          <span>{alertMessage.text}</span>
+          <button onClick={() => setAlertMessage(null)} className="text-xs underline hover:no-underline">Kapat</button>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-zinc-900/80 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
         {locationsQuery.isLoading ? (
           <div className="p-8 space-y-4">
@@ -127,7 +162,7 @@ export default function LokasyonlarPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
-                  <th className="text-left px-5 py-4 font-semibold text-zinc-600 dark:text-zinc-300">Depo</th>
+                  <th className="text-left px-5 py-4 font-semibold text-zinc-600 dark:text-zinc-300 border-l-2 border-transparent">Depo</th>
                   <th className="text-left px-5 py-4 font-semibold text-zinc-600 dark:text-zinc-300">Bölge (Zone)</th>
                   <th className="text-left px-5 py-4 font-semibold text-zinc-600 dark:text-zinc-300">Koridor (Aisle)</th>
                   <th className="text-left px-5 py-4 font-semibold text-zinc-600 dark:text-zinc-300">Raf (Shelf)</th>
@@ -137,40 +172,65 @@ export default function LokasyonlarPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-                {locationsQuery.data.map((loc) => (
-                  <tr key={loc.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <Warehouse className="w-4 h-4 text-zinc-400" />
-                        <span className="font-medium text-zinc-900 dark:text-zinc-100">{loc.warehouse?.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.zone}</td>
-                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.aisle || '—'}</td>
-                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.shelf || '—'}</td>
-                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.bin || '—'}</td>
-                    <td className="px-5 py-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-medium text-xs">
-                        <Package className="w-3 h-3" />
-                        {loc._count?.stockItems || 0}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => openEditForm(loc)}
-                        className="p-2 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteId(loc.id)}
-                        className="p-2 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {locationsQuery.data.map((loc) => {
+                  const isSelected = selectedIds.includes(loc.id);
+                  return (
+                    <tr 
+                      key={loc.id} 
+                      onClick={() => {
+                        setSelectedIds((prev) => 
+                          prev.includes(loc.id) 
+                            ? prev.filter((id) => id !== loc.id) 
+                            : [...prev, loc.id]
+                        );
+                      }}
+                      className={`transition-colors select-none cursor-pointer group ${
+                        isSelected
+                          ? 'bg-indigo-50/20 dark:bg-indigo-950/10'
+                          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/30'
+                      }`}
+                    >
+                      <td className={`px-5 py-4 transition-all duration-200 ${
+                        isSelected ? 'border-l-2 border-indigo-600 dark:border-indigo-500' : 'border-l-2 border-transparent'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <Warehouse className="w-4 h-4 text-zinc-400" />
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">{loc.warehouse?.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.zone}</td>
+                      <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.aisle || '—'}</td>
+                      <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.shelf || '—'}</td>
+                      <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{loc.bin || '—'}</td>
+                      <td className="px-5 py-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-medium text-xs">
+                          <Package className="w-3 h-3" />
+                          {loc._count?.stockItems || 0}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditForm(loc);
+                          }}
+                          className="p-2 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteId(loc.id);
+                          }}
+                          className="p-2 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -271,6 +331,46 @@ export default function LokasyonlarPage() {
           onClose={() => setDeleteId(null)}
           isLoading={deleteLocation.isPending}
         />
+      )}
+
+      {isBulkDeleteOpen && (
+        <DeleteConfirmDialog
+          isOpen={isBulkDeleteOpen}
+          title="Seçilen Lokasyonları Sil"
+          description={`Seçilen ${selectedIds.length} lokasyonu silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve bağlı stok veya hareketi bulunan lokasyonlar silinmeyip atlanacaktır.`}
+          onConfirm={() => deleteManyLocation.mutate({ ids: selectedIds })}
+          onClose={() => setIsBulkDeleteOpen(false)}
+          isLoading={deleteManyLocation.isPending}
+        />
+      )}
+
+      {/* Floating Action Toolbar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-50 min-w-[320px] sm:min-w-[450px] animate-slideUp">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/55 text-indigo-600 dark:text-indigo-400">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              {selectedIds.length} lokasyon seçildi
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
+            >
+              Seçimi Temizle
+            </button>
+            <button
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-rose-500/10 active:scale-[0.98]"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Seçilenleri Sil
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -326,4 +326,162 @@ export const inventoryRouter = router({
         recentMovements,
       };
     }),
+
+  /** Toplu stok hareketi içe aktarma */
+  bulkCreateMovements: publicProcedure
+    .input(
+      z.object({
+        movements: z.array(
+          z.object({
+            sku: z.string().min(1, 'SKU zorunludur'),
+            zone: z.string().min(1, 'Bölge zorunludur'),
+            quantity: z.number().int().positive('Miktar pozitif olmalıdır'),
+            type: z.enum(['IN', 'OUT', 'TRANSFER', 'ADJUSTMENT']),
+            reason: z.string().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const results: { index: number; success: boolean; error?: string }[] = [];
+
+      const user = await prisma.user.findFirst();
+      if (!user) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Sistemde kullanıcı bulunamadı.',
+        });
+      }
+      const userId = user.id;
+
+      for (let i = 0; i < input.movements.length; i++) {
+        const row = input.movements[i];
+        try {
+          if (row.type === 'TRANSFER') {
+            results.push({
+              index: i,
+              success: false,
+              error: 'Toplu harekette TRANSFER tipi desteklenmemektedir, sadece IN/OUT/ADJUSTMENT kullanın.',
+            });
+            continue;
+          }
+
+          // Ürün bul
+          const product = await prisma.product.findUnique({
+            where: { sku: row.sku },
+          });
+          if (!product) {
+            results.push({ index: i, success: false, error: `Ürün SKU bulunamadı: ${row.sku}` });
+            continue;
+          }
+
+          // Lokasyon bul
+          const location = await prisma.location.findFirst({
+            where: { zone: { equals: row.zone, mode: 'insensitive' } },
+          });
+          if (!location) {
+            results.push({ index: i, success: false, error: `Lokasyon bölgesi (Zone) bulunamadı: ${row.zone}` });
+            continue;
+          }
+
+          // İşlem tipine göre envanter güncelleme
+          if (row.type === 'OUT') {
+            const stockItem = await prisma.stockItem.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: product.id,
+                  locationId: location.id,
+                },
+              },
+            });
+            if (!stockItem || stockItem.quantity < row.quantity) {
+              results.push({
+                index: i,
+                success: false,
+                error: `Yetersiz stok. Mevcut: ${stockItem?.quantity ?? 0}, İstenen: ${row.quantity}`,
+              });
+              continue;
+            }
+
+            await txUpdateHelper(product.id, location.id, row.quantity, 'OUT');
+          } else if (row.type === 'IN') {
+            await txUpdateHelper(product.id, location.id, row.quantity, 'IN');
+          } else if (row.type === 'ADJUSTMENT') {
+            await txUpdateHelper(product.id, location.id, row.quantity, 'ADJUSTMENT');
+          }
+
+          // Stok hareketi kaydı oluştur
+          await prisma.stockMovement.create({
+            data: {
+              type: row.type,
+              productId: product.id,
+              fromLocationId: row.type === 'OUT' ? location.id : null,
+              toLocationId: row.type === 'IN' || row.type === 'ADJUSTMENT' ? location.id : null,
+              quantity: row.quantity,
+              userId: userId,
+              reason: row.reason || 'Toplu İçe Aktarma',
+            },
+          });
+
+          results.push({ index: i, success: true });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
+          results.push({ index: i, success: false, error: message });
+        }
+      }
+
+      // Yardımcı stok güncelleme fonksiyonu
+      async function txUpdateHelper(productId: string, locationId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT') {
+        if (type === 'OUT') {
+          await prisma.stockItem.update({
+            where: {
+              productId_locationId: { productId, locationId },
+            },
+            data: { quantity: { decrement: quantity } },
+          });
+        } else if (type === 'IN') {
+          await prisma.stockItem.upsert({
+            where: {
+              productId_locationId: { productId, locationId },
+            },
+            update: { quantity: { increment: quantity } },
+            create: {
+              productId,
+              locationId,
+              quantity,
+              reservedQty: 0,
+            },
+          });
+        } else if (type === 'ADJUSTMENT') {
+          await prisma.stockItem.upsert({
+            where: {
+              productId_locationId: { productId, locationId },
+            },
+            update: { quantity },
+            create: {
+              productId,
+              locationId,
+              quantity,
+              reservedQty: 0,
+            },
+          });
+        }
+      }
+
+      const successCount = results.filter((r) => r.success).length;
+      const errorCount = results.filter((r) => !r.success).length;
+
+      // ImportLog kaydı oluştur
+      await prisma.importLog.create({
+        data: {
+          userId: userId,
+          type: 'MOVEMENT',
+          totalRows: input.movements.length,
+          successRows: successCount,
+          errorRows: errorCount,
+        },
+      });
+
+      return { results, successCount, errorCount };
+    }),
 });

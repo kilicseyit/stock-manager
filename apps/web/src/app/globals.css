@@ -25,3 +25,19 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
+
+@utility animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 1.5rem) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+

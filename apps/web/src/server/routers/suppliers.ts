@@ -164,4 +164,28 @@ export const supplierRouter = router({
 
       return prisma.supplier.delete({ where: { id: input.id } });
     }),
+
+  /** Toplu tedarikçi sil */
+  deleteMany: publicProcedure
+    .input(z.object({ ids: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const id of input.ids) {
+        const orderCount = await prisma.purchaseOrder.count({
+          where: { supplierId: id },
+        });
+
+        if (orderCount > 0) {
+          errorCount++;
+          continue;
+        }
+
+        await prisma.supplier.delete({ where: { id } });
+        successCount++;
+      }
+
+      return { successCount, errorCount };
+    }),
 });
