@@ -27,6 +27,18 @@ async function main() {
       role: Role.SUPER_ADMIN,
     },
   });
+  const warehouse = await prisma.warehouse.upsert({
+    where: { id: 'default-warehouse' },
+    update: {},
+    create: {
+      id: 'default-warehouse',
+      name: 'Ana Depo',
+      address: 'İstanbul, Türkiye',
+      timezone: 'Europe/Istanbul',
+    },
+  });
+
+  console.log('Depo oluşturuldu:', warehouse.name);
 
   console.log('Seed database completed successfully.');
   console.log('Admin user created/updated:', admin.email);

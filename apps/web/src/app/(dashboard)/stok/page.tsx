@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { trpc } from '@/trpc/client';
-import { useSocket } from '@/hooks/useSocket';
+import { useInventoryBroadcast } from '@/hooks/useInventoryBroadcast';
 import StockMovementForm from '@/components/features/inventory/StockMovementForm';
 import StockGrid from '@/components/features/inventory/StockGrid';
 import {
@@ -34,40 +34,45 @@ export default function StokPage() {
   const [showForm, setShowForm] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('');
 
-  // Socket.io — real-time updates
-  const { joinInventory, leaveInventory, onInventoryUpdate } = useSocket();
+  // BroadcastChannel — cross-tab real-time updates
+  const { broadcastUpdate, onInventoryUpdate } = useInventoryBroadcast();
 
   // tRPC queries
   const utils = trpc.useUtils();
 
-  const statsQuery = trpc.inventory.getDashboardStats.useQuery();
-  const stockQuery = trpc.inventory.getStock.useQuery({});
+  const statsQuery = trpc.inventory.getDashboardStats.useQuery(undefined, {
+    refetchInterval: 30000, // 30 saniye fallback polling
+  });
+  const stockQuery = trpc.inventory.getStock.useQuery({}, {
+    refetchInterval: 30000,
+  });
   const historyQuery = trpc.inventory.getHistory.useQuery({
     limit: 20,
     type: typeFilter ? (typeFilter as 'IN' | 'OUT' | 'TRANSFER' | 'ADJUSTMENT') : undefined,
+  }, {
+    refetchInterval: 30000,
   });
   const productsQuery = trpc.product.getAll.useQuery({ limit: 100 });
   const locationsQuery = trpc.location.getAll.useQuery();
 
   const createMovement = trpc.inventory.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Kendi sayfamızı hemen güncelle
       utils.inventory.getStock.invalidate();
       utils.inventory.getHistory.invalidate();
       utils.inventory.getDashboardStats.invalidate();
+      // Diğer sekme/pencerelere bildir
+      broadcastUpdate({
+        productId: data.productId,
+        type: data.type,
+      });
       setShowForm(false);
     },
   });
 
-  // Socket.io lifecycle
-  useEffect(() => {
-    joinInventory();
-    return () => leaveInventory();
-  }, [joinInventory, leaveInventory]);
-
-  // Socket.io real-time event listener
+  // BroadcastChannel: başka sekmelerden gelen güncelleme sinyali
   useEffect(() => {
     const unsubscribe = onInventoryUpdate(() => {
-      // Stok verileri değiştiğinde refetch
       utils.inventory.getStock.invalidate();
       utils.inventory.getHistory.invalidate();
       utils.inventory.getDashboardStats.invalidate();

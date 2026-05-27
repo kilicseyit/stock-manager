@@ -32,106 +32,118 @@ export const inventoryRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Ürün bulunamadı.' });
       }
 
-      // Kullanıcı ID'si — şimdilik session olmadan çalışır
-      // TODO: tRPC context'ten user id al
-      const userId = 'system';
+      // Kullanıcı ID'si — geçici olarak ilk kullanıcıyı al (veya admin'i)
+      const user = await prisma.user.findFirst();
+      if (!user) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Sistemde kullanici bulunamadi.' });
+      }
+      const userId = user.id;
 
-      const result = await prisma.$transaction(async (tx) => {
-        // OUT veya TRANSFER: kaynak lokasyondan düş
-        if ((type === 'OUT' || type === 'TRANSFER') && fromLocationId) {
-          const fromStock = await tx.stockItem.findUnique({
-            where: {
-              productId_locationId: { productId, locationId: fromLocationId },
-            },
-          });
+      try {
+        const result = await prisma.$transaction(async (tx) => {
+          // OUT veya TRANSFER: kaynak lokasyondan düş
+          if ((type === 'OUT' || type === 'TRANSFER') && fromLocationId) {
+            const fromStock = await tx.stockItem.findUnique({
+              where: {
+                productId_locationId: { productId, locationId: fromLocationId },
+              },
+            });
 
-          if (!fromStock || fromStock.quantity < quantity) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: `Yetersiz stok. Mevcut: ${fromStock?.quantity ?? 0}, İstenen: ${quantity}`,
+            if (!fromStock || fromStock.quantity < quantity) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: `Yetersiz stok. Mevcut: ${fromStock?.quantity ?? 0}, İstenen: ${quantity}`,
+              });
+            }
+
+            // Rezerve edilmiş stok kontrolü
+            const availableQty = fromStock.quantity - fromStock.reservedQty;
+            if (availableQty < quantity) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: `Kullanılabilir stok yetersiz. Mevcut: ${fromStock.quantity}, Rezerve: ${fromStock.reservedQty}, Kullanılabilir: ${availableQty}`,
+              });
+            }
+
+            await tx.stockItem.update({
+              where: {
+                productId_locationId: { productId, locationId: fromLocationId },
+              },
+              data: { quantity: { decrement: quantity } },
             });
           }
 
-          // Rezerve edilmiş stok kontrolü
-          const availableQty = fromStock.quantity - fromStock.reservedQty;
-          if (availableQty < quantity) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: `Kullanılabilir stok yetersiz. Mevcut: ${fromStock.quantity}, Rezerve: ${fromStock.reservedQty}, Kullanılabilir: ${availableQty}`,
+          // IN veya TRANSFER: hedef lokasyona ekle
+          if ((type === 'IN' || type === 'TRANSFER') && toLocationId) {
+            await tx.stockItem.upsert({
+              where: {
+                productId_locationId: { productId, locationId: toLocationId },
+              },
+              update: { quantity: { increment: quantity } },
+              create: {
+                productId,
+                locationId: toLocationId,
+                quantity,
+                reservedQty: 0,
+              },
             });
           }
 
-          await tx.stockItem.update({
-            where: {
-              productId_locationId: { productId, locationId: fromLocationId },
-            },
-            data: { quantity: { decrement: quantity } },
-          });
-        }
+          // ADJUSTMENT: Direkt set (toLocation'a)
+          if (type === 'ADJUSTMENT' && toLocationId) {
+            await tx.stockItem.upsert({
+              where: {
+                productId_locationId: { productId, locationId: toLocationId },
+              },
+              update: { quantity },
+              create: {
+                productId,
+                locationId: toLocationId,
+                quantity,
+                reservedQty: 0,
+              },
+            });
+          }
 
-        // IN veya TRANSFER: hedef lokasyona ekle
-        if ((type === 'IN' || type === 'TRANSFER') && toLocationId) {
-          await tx.stockItem.upsert({
-            where: {
-              productId_locationId: { productId, locationId: toLocationId },
-            },
-            update: { quantity: { increment: quantity } },
-            create: {
+          // Stok hareketi kaydı oluştur
+          const movement = await tx.stockMovement.create({
+            data: {
+              type,
               productId,
-              locationId: toLocationId,
+              fromLocationId: fromLocationId ?? null,
+              toLocationId: toLocationId ?? null,
               quantity,
-              reservedQty: 0,
+              userId,
+              reason: reason ?? null,
+            },
+            include: {
+              product: { select: { id: true, name: true, sku: true } },
+              fromLocation: { select: { id: true, zone: true, aisle: true, shelf: true } },
+              toLocation: { select: { id: true, zone: true, aisle: true, shelf: true } },
             },
           });
-        }
 
-        // ADJUSTMENT: Direkt set (toLocation'a)
-        if (type === 'ADJUSTMENT' && toLocationId) {
-          await tx.stockItem.upsert({
-            where: {
-              productId_locationId: { productId, locationId: toLocationId },
-            },
-            update: { quantity },
-            create: {
-              productId,
-              locationId: toLocationId,
-              quantity,
-              reservedQty: 0,
-            },
-          });
-        }
-
-        // Stok hareketi kaydı oluştur
-        const movement = await tx.stockMovement.create({
-          data: {
-            type,
-            productId,
-            fromLocationId: fromLocationId ?? null,
-            toLocationId: toLocationId ?? null,
-            quantity,
-            userId,
-            reason: reason ?? null,
-          },
-          include: {
-            product: { select: { id: true, name: true, sku: true } },
-            fromLocation: { select: { id: true, zone: true, aisle: true, shelf: true } },
-            toLocation: { select: { id: true, zone: true, aisle: true, shelf: true } },
-          },
+          return movement;
         });
 
-        return movement;
-      });
+        // Socket.io broadcast — real-time güncelleme
+        try {
+          broadcastInventoryUpdate({
+            productId,
+            locationId: toLocationId || fromLocationId || '',
+            quantity,
+            type,
+            productName: product.name,
+          });
+        } catch (socketErr) {
+          console.error('Socket.io broadcast hatasi:', socketErr);
+        }
 
-      // Socket.io broadcast — real-time güncelleme
-      broadcastInventoryUpdate({
-        productId,
-        locationId: toLocationId || fromLocationId || '',
-        quantity,
-        type,
-        productName: product.name,
-      });
-
-      return result;
+        return result;
+      } catch (error) {
+        console.error('Inventory Create Hatasi:', error);
+        throw error;
+      }
     }),
 
   /** Stok hareket geçmişi — cursor-based pagination */
