@@ -613,6 +613,14 @@ export default function TedarikcilerPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {suppliersQuery.data?.items && selectedIds.length < suppliersQuery.data.items.length && (
+              <button
+                onClick={() => setSelectedIds(suppliersQuery.data.items.map((s) => s.id))}
+                className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
+              >
+                Tümünü Seç
+              </button>
+            )}
             <button
               onClick={() => setSelectedIds([])}
               className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
