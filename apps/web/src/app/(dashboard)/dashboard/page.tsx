@@ -98,11 +98,18 @@ export default function DashboardPage() {
     'top-products': true,
     occupancy: true,
   });
+  const [widgetSizes, setWidgetSizes] = useState<Record<string, 'small' | 'medium' | 'large'>>({
+    trend: 'medium',
+    category: 'small',
+    'top-products': 'medium',
+    occupancy: 'small',
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     const savedOrder = localStorage.getItem('dashboard_widget_order');
     const savedVisibility = localStorage.getItem('dashboard_widget_visibility');
+    const savedSizes = localStorage.getItem('dashboard_widget_sizes');
     if (savedOrder) {
       try {
         setWidgetOrder(JSON.parse(savedOrder));
@@ -113,6 +120,13 @@ export default function DashboardPage() {
     if (savedVisibility) {
       try {
         setWidgetVisibility(JSON.parse(savedVisibility));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (savedSizes) {
+      try {
+        setWidgetSizes(JSON.parse(savedSizes));
       } catch (e) {
         console.error(e);
       }
@@ -130,6 +144,12 @@ export default function DashboardPage() {
     localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
   };
 
+  const handleSizeChange = (id: string, newSize: 'small' | 'medium' | 'large') => {
+    const newSizes = { ...widgetSizes, [id]: newSize };
+    setWidgetSizes(newSizes);
+    localStorage.setItem('dashboard_widget_sizes', JSON.stringify(newSizes));
+  };
+
   const handleResetSettings = () => {
     const defaultOrder = ['kpi', 'trend', 'category', 'top-products', 'occupancy'];
     const defaultVisibility = {
@@ -139,10 +159,18 @@ export default function DashboardPage() {
       'top-products': true,
       occupancy: true,
     };
+    const defaultSizes: Record<string, 'small' | 'medium' | 'large'> = {
+      trend: 'medium',
+      category: 'small',
+      'top-products': 'medium',
+      occupancy: 'small',
+    };
     setWidgetOrder(defaultOrder);
     setWidgetVisibility(defaultVisibility);
+    setWidgetSizes(defaultSizes);
     localStorage.removeItem('dashboard_widget_order');
     localStorage.removeItem('dashboard_widget_visibility');
+    localStorage.removeItem('dashboard_widget_sizes');
   };
 
   const sensors = useSensors(
@@ -356,62 +384,82 @@ export default function DashboardPage() {
                       </div>
                     </DashboardWidget>
                   );
-                case 'trend':
+                case 'trend': {
+                  const currentSize = widgetSizes.trend || 'medium';
+                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
                   return (
                     <DashboardWidget
                       key={id}
                       id={id}
                       title="Stok Giriş / Çıkış Hareketi Trendi"
                       icon={<Calendar className="w-4 h-4" />}
-                      className="col-span-1 lg:col-span-2"
+                      size={currentSize}
+                      onSizeChange={(size) => handleSizeChange('trend', size)}
+                      className={sizeClass}
                     >
                       <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
                         <MovementTrendChart data={trendQuery.data} />
                       </div>
                     </DashboardWidget>
                   );
-                case 'category':
+                }
+                case 'category': {
+                  const currentSize = widgetSizes.category || 'small';
+                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
                   return (
                     <DashboardWidget
                       key={id}
                       id={id}
                       title="Kategori Dağılımı"
                       icon={<Layers className="w-4 h-4" />}
-                      className="col-span-1"
+                      size={currentSize}
+                      onSizeChange={(size) => handleSizeChange('category', size)}
+                      className={sizeClass}
                     >
                       <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
                         <CategoryDistributionChart data={categoryQuery.data} />
                       </div>
                     </DashboardWidget>
                   );
-                case 'top-products':
+                }
+                case 'top-products': {
+                  const currentSize = widgetSizes['top-products'] || 'medium';
+                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
                   return (
                     <DashboardWidget
                       key={id}
                       id={id}
                       title="En Aktif Ürünler (Son Stok Hareket Sayıları)"
                       icon={<BarChart3 className="w-4 h-4" />}
-                      className="col-span-1 lg:col-span-2"
+                      size={currentSize}
+                      onSizeChange={(size) => handleSizeChange('top-products', size)}
+                      className={sizeClass}
                     >
                       <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
                         <TopProductsChart data={topProductsQuery.data} />
                       </div>
                     </DashboardWidget>
                   );
-                case 'occupancy':
+                }
+                case 'occupancy': {
+                  const currentSize = widgetSizes.occupancy || 'small';
+                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
                   return (
                     <DashboardWidget
                       key={id}
                       id={id}
                       title="En Dolu Lokasyonlar (%)"
                       icon={<MapPin className="w-4 h-4" />}
-                      className="col-span-1"
+                      size={currentSize}
+                      onSizeChange={(size) => handleSizeChange('occupancy', size)}
+                      className={sizeClass}
                     >
                       <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
                         <LocationOccupancyChart data={occupancyQuery.data} />
                       </div>
                     </DashboardWidget>
                   );
+                }
                 default:
                   return null;
               }
