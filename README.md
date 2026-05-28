@@ -1,159 +1,98 @@
-# Turborepo starter
+# 📦 StockManager — Warehouse Management System (WMS)
 
-This Turborepo starter is maintained by the Turborepo core team.
+StockManager, modern depo operasyonlarını, gerçek zamanlı envanter hareketlerini, satın alma siparişlerini, akıllı bildirimleri ve gelişmiş raporlamayı yöneten modern ve yüksek performanslı bir **Full-Stack Depo Yönetim Sistemidir (WMS)**.
 
-## Using this example
+StockManager is a modern, high-performance **Full-Stack Warehouse Management System (WMS)** that handles warehouse operations, real-time inventory tracking, purchase orders, smart notifications, and advanced analytics.
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
+## 🚀 Teknolojiler / Technologies
+
+Proje, modern ve endüstri standardı teknolojilerle yapılandırılmış monorepo (Turborepo) mimarisine sahiptir:
+
+The project features a clean monorepo architecture built with enterprise-grade tech:
+
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![tRPC](https://img.shields.io/badge/tRPC-2574C4?style=for-the-badge&logo=trpc&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-CC0000?style=for-the-badge&logo=redis&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Turbo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
+---
+
+## ✨ Özellikler / Features
+
+*   **🔒 Auth & Yetkilendirme (RBAC):** NextAuth v5 ile güvenli kimlik doğrulama, `SUPER_ADMIN` ve `PERSONNEL` rolleri.
+*   **📦 Ürün Kataloğu & Otomatik SKU:** Otomatik SKU kodlaması, barkod yönetimi ve görsel envanter.
+*   **📊 Gerçek Zamanlı Stok Takibi:** Depo, koridor, raf ve kutu bazlı detaylı stok lokasyonları. Socket.io ile anlık envanter güncellemeleri.
+*   **🔔 Düşük Stok Alarmları:** BullMQ entegrasyonu ile arka planda çalışan ve kritik seviyedeki ürünler için anlık bildirim fırlatan worker sistemi.
+*   **🚚 Tedarikçi & Sipariş Yönetimi:** Tedarikçi puanlama sistemi, DRAFT → SENT → PARTIAL → RECEIVED → CANCELLED durum akışına sahip satın alma sipariş yönetimi.
+*   **📥 Gelişmiş Excel/CSV Import:** Hata doğrulama önizlemeli toplu ürün ve stok hareketi yükleme, şablon indirme.
+*   **📈 Dashboard & Analitik:** Recharts kütüphanesi ile anlık doluluk oranları, stok hareket trend grafikleri ve PDF/Excel formatlarında dışa aktarma (export).
+*   **⚡ Performans & Güvenlik:** API rate limiting, XSS koruması (HTML sanitization), dynamic import ve Error Boundary.
+
+---
+
+## 🛠️ Kurulum / Installation
+
+Projeyi yerel makinenizde çalıştırmak için aşağıdaki adımları takip edin:
+
+Follow these steps to run the project locally on your machine:
+
+### 1. Projeyi Klonlayın / Clone the Project
+```bash
+git clone https://github.com/kilicseyit/stock-manager.git
+cd stock-manager
 ```
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+### 2. Bağımlılıkları Yükleyin / Install Dependencies
+```bash
+pnpm install
 ```
 
-Without global `turbo`, use your package manager:
+### 3. Çevre Değişkenlerini Ayarlayın / Setup Environment Variables
+Kök dizindeki `.env.example` dosyasını kopyalayarak `apps/web/.env` ve `apps/web/.env.local` dosyalarını oluşturun.
+Copy `.env.example` to create `apps/web/.env` and `apps/web/.env.local`.
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+### 4. Altyapıyı Başlatın (Docker) / Start Infrastructure (Docker)
+PostgreSQL ve Redis veritabanlarını başlatmak için:
+To spin up PostgreSQL and Redis:
+```bash
+docker-compose up -d
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### 5. Veritabanı Şemasını ve Başlangıç Verilerini Yükleyin / Migrate and Seed DB
+```bash
+# Veritabanı tablolarını oluşturun
+npx prisma migrate dev
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+# Başlangıç test verilerini yükleyin (Seed)
+npx prisma db seed
 ```
 
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+### 6. Uygulamayı Başlatın / Start the Application
+Uygulamayı geliştirme modunda çalıştırmak için:
+To run the project in development mode:
+```bash
+pnpm dev
 ```
+Uygulama varsayılan olarak **http://localhost:3000** adresinde çalışmaya başlayacaktır.
+The app will run at **http://localhost:3000**.
 
-### Develop
+---
 
-To develop all apps and packages, run the following command:
+## 📸 Ekran Görüntüleri / Screenshots
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+*Görseller geliştirme aşaması sonunda buraya eklenecektir / Screenshots will be added here at the end of the development phase.*
 
-```sh
-cd my-turborepo
-turbo dev
-```
+---
 
-Without global `turbo`, use your package manager:
+## 📄 Lisans / License
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Bu proje **MIT** lisansı altında lisanslanmıştır.
+This project is licensed under the **MIT** License.

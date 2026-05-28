@@ -14,23 +14,39 @@ import {
   MapPin,
   RefreshCw,
 } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  Legend,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+const MovementTrendChart = dynamic(
+  () => import('@/components/features/dashboard/MovementTrendChart'),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full bg-zinc-100/50 dark:bg-zinc-800/20 animate-pulse rounded-xl" />,
+  }
+);
+
+const CategoryDistributionChart = dynamic(
+  () => import('@/components/features/dashboard/CategoryDistributionChart'),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full bg-zinc-100/50 dark:bg-zinc-800/20 animate-pulse rounded-xl" />,
+  }
+);
+
+const TopProductsChart = dynamic(
+  () => import('@/components/features/dashboard/TopProductsChart'),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full bg-zinc-100/50 dark:bg-zinc-800/20 animate-pulse rounded-xl" />,
+  }
+);
+
+const LocationOccupancyChart = dynamic(
+  () => import('@/components/features/dashboard/LocationOccupancyChart'),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full bg-zinc-100/50 dark:bg-zinc-800/20 animate-pulse rounded-xl" />,
+  }
+);
 
 function DashboardSkeleton() {
   return (
@@ -232,50 +248,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-80 w-full text-xs">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendQuery.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorIN" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorOUT" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" className="dark:stroke-zinc-800" />
-                <XAxis dataKey="date" stroke="#a1a1aa" tickLine={false} axisLine={false} />
-                <YAxis stroke="#a1a1aa" tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    borderRadius: '12px',
-                    borderColor: '#e4e4e7',
-                  }}
-                  itemStyle={{ fontSize: '11px' }}
-                />
-                <Legend iconType="circle" />
-                <Area
-                  type="monotone"
-                  dataKey="IN"
-                  name="Giriş (IN)"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorIN)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="OUT"
-                  name="Çıkış (OUT)"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorOUT)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <MovementTrendChart data={trendQuery.data} />
           </div>
         </div>
 
@@ -286,30 +259,8 @@ export default function DashboardPage() {
             <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">Kategori Dağılımı</h2>
           </div>
 
-          <div className="h-80 w-full flex items-center justify-center text-xs">
-            {!categoryQuery.data?.length ? (
-              <p className="text-zinc-400 text-sm">Ürün dağılımı yok</p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryQuery.data}
-                    cx="50%"
-                    cy="45%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {categoryQuery.data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip itemStyle={{ fontSize: '11px' }} />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" iconSize={8} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
+          <div className="h-80 w-full text-xs">
+            <CategoryDistributionChart data={categoryQuery.data} />
           </div>
         </div>
 
@@ -323,22 +274,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-80 w-full text-xs">
-            {!topProductsQuery.data?.length ? (
-              <div className="flex items-center justify-center h-full text-zinc-400 text-sm">Veri bulunamadı</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topProductsQuery.data} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" className="dark:stroke-zinc-800" />
-                  <XAxis dataKey="sku" stroke="#a1a1aa" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#a1a1aa" tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', borderColor: '#e4e4e7' }}
-                    itemStyle={{ fontSize: '11px' }}
-                  />
-                  <Bar dataKey="movementCount" name="Hareket Sayısı" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <TopProductsChart data={topProductsQuery.data} />
           </div>
         </div>
 
@@ -352,26 +288,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-80 w-full text-xs">
-            {!occupancyQuery.data?.length ? (
-              <div className="flex items-center justify-center h-full text-zinc-400 text-sm">Lokasyon kaydı bulunamadı</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={occupancyQuery.data}
-                  layout="vertical"
-                  margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f4f4f5" className="dark:stroke-zinc-800" />
-                  <XAxis type="number" stroke="#a1a1aa" domain={[0, 100]} tickLine={false} axisLine={false} />
-                  <YAxis dataKey="name" type="category" stroke="#a1a1aa" tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', borderColor: '#e4e4e7' }}
-                    itemStyle={{ fontSize: '11px' }}
-                  />
-                  <Bar dataKey="rate" name="Doluluk Oranı (%)" fill="#ec4899" radius={[0, 4, 4, 0]} maxBarSize={15} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <LocationOccupancyChart data={occupancyQuery.data} />
           </div>
         </div>
       </div>

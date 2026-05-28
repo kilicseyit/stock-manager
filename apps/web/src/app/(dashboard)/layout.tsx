@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default async function DashboardLayout({
   children,
@@ -27,7 +28,9 @@ export default async function DashboardLayout({
         {/* Dynamic Route Content */}
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </div>
         </main>
       </div>

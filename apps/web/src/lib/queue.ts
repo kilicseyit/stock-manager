@@ -1,3 +1,4 @@
+import '@/lib/env';
 import { Queue } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 

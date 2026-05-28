@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizedString } from './sanitize';
 
 /** Stok hareket tipleri */
 export const movementTypeEnum = z.enum(['IN', 'OUT', 'TRANSFER', 'ADJUSTMENT']);
@@ -10,7 +11,7 @@ export const createMovementSchema = z.object({
   fromLocationId: z.string().optional(),
   toLocationId: z.string().optional(),
   quantity: z.number().int().positive('Miktar pozitif olmalıdır'),
-  reason: z.string().optional(),
+  reason: sanitizedString.optional(),
 }).refine(
   (data) => {
     // OUT ve TRANSFER için fromLocation zorunlu
