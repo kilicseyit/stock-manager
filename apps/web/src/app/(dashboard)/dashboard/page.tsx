@@ -258,6 +258,7 @@ export default function DashboardPage() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     const savedKpis = localStorage.getItem('dashboard_kpi_widgets');
@@ -398,7 +399,12 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDragStart = (event: any) => {
+    setActiveId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = event;
     
     let latestKpis = [...kpiWidgets];
@@ -432,6 +438,16 @@ export default function DashboardPage() {
 
     localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(latestKpis));
     localStorage.setItem('dashboard_main_widgets', JSON.stringify(latestMain));
+
+    // Restore widget sizes from localStorage after dragging to ensure they are preserved
+    const savedSizes = localStorage.getItem('dashboard_widget_sizes');
+    if (savedSizes) {
+      try {
+        setWidgetSizes(JSON.parse(savedSizes));
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   // tRPC Queries
@@ -530,10 +546,13 @@ export default function DashboardPage() {
       );
     }
 
+    const isCurrentlyDragged = activeId === id;
+    const forceKpiSize = isKpiZone && !isCurrentlyDragged;
+
     switch (id) {
       case 'trend': {
-        const currentSize = isKpiZone ? 'small' : (widgetSizes.trend || 'medium');
-        const sizeClass = isKpiZone 
+        const currentSize = forceKpiSize ? 'small' : (widgetSizes.trend || 'medium');
+        const sizeClass = forceKpiSize 
           ? 'col-span-1' 
           : currentSize === 'small' 
             ? 'col-span-1' 
@@ -547,8 +566,8 @@ export default function DashboardPage() {
             id={id}
             title="Stok Giriş / Çıkış Hareketi Trendi"
             icon={<Calendar className="w-4 h-4" />}
-            size={isKpiZone ? undefined : currentSize}
-            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('trend', size)}
+            size={forceKpiSize ? undefined : currentSize}
+            onSizeChange={forceKpiSize ? undefined : (size) => handleSizeChange('trend', size)}
             className={sizeClass}
             onRemove={() => handleRemoveWidget(id)}
           >
@@ -559,8 +578,8 @@ export default function DashboardPage() {
         );
       }
       case 'category': {
-        const currentSize = isKpiZone ? 'small' : (widgetSizes.category || 'small');
-        const sizeClass = isKpiZone 
+        const currentSize = forceKpiSize ? 'small' : (widgetSizes.category || 'small');
+        const sizeClass = forceKpiSize 
           ? 'col-span-1' 
           : currentSize === 'small' 
             ? 'col-span-1' 
@@ -574,8 +593,8 @@ export default function DashboardPage() {
             id={id}
             title="Kategori Dağılımı"
             icon={<Layers className="w-4 h-4" />}
-            size={isKpiZone ? undefined : currentSize}
-            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('category', size)}
+            size={forceKpiSize ? undefined : currentSize}
+            onSizeChange={forceKpiSize ? undefined : (size) => handleSizeChange('category', size)}
             className={sizeClass}
             onRemove={() => handleRemoveWidget(id)}
           >
@@ -586,8 +605,8 @@ export default function DashboardPage() {
         );
       }
       case 'top-products': {
-        const currentSize = isKpiZone ? 'small' : (widgetSizes['top-products'] || 'medium');
-        const sizeClass = isKpiZone 
+        const currentSize = forceKpiSize ? 'small' : (widgetSizes['top-products'] || 'medium');
+        const sizeClass = forceKpiSize 
           ? 'col-span-1' 
           : currentSize === 'small' 
             ? 'col-span-1' 
@@ -601,8 +620,8 @@ export default function DashboardPage() {
             id={id}
             title="En Aktif Ürünler (Son Stok Hareket Sayıları)"
             icon={<BarChart3 className="w-4 h-4" />}
-            size={isKpiZone ? undefined : currentSize}
-            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('top-products', size)}
+            size={forceKpiSize ? undefined : currentSize}
+            onSizeChange={forceKpiSize ? undefined : (size) => handleSizeChange('top-products', size)}
             className={sizeClass}
             onRemove={() => handleRemoveWidget(id)}
           >
@@ -613,8 +632,8 @@ export default function DashboardPage() {
         );
       }
       case 'occupancy': {
-        const currentSize = isKpiZone ? 'small' : (widgetSizes.occupancy || 'small');
-        const sizeClass = isKpiZone 
+        const currentSize = forceKpiSize ? 'small' : (widgetSizes.occupancy || 'small');
+        const sizeClass = forceKpiSize 
           ? 'col-span-1' 
           : currentSize === 'small' 
             ? 'col-span-1' 
@@ -628,8 +647,8 @@ export default function DashboardPage() {
             id={id}
             title="En Dolu Lokasyonlar (%)"
             icon={<MapPin className="w-4 h-4" />}
-            size={isKpiZone ? undefined : currentSize}
-            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('occupancy', size)}
+            size={forceKpiSize ? undefined : currentSize}
+            onSizeChange={forceKpiSize ? undefined : (size) => handleSizeChange('occupancy', size)}
             className={sizeClass}
             onRemove={() => handleRemoveWidget(id)}
           >
@@ -708,6 +727,7 @@ export default function DashboardPage() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
