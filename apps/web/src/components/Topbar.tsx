@@ -3,13 +3,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ThemeToggle from './ThemeToggle';
 import NotificationBell from './NotificationBell';
-import { Search, HelpCircle, Package, Loader2, X } from 'lucide-react';
+import { Search, HelpCircle, Package, Loader2, X, Menu } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useRouter } from 'next/navigation';
+import { useSidebar } from './SidebarContext';
 
 export default function Topbar() {
   const router = useRouter();
+  const { toggleCollapsed } = useSidebar();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const debouncedQuery = useDebounce(query, 300);
@@ -58,6 +60,15 @@ export default function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-md flex items-center justify-between px-6 lg:px-8 transition-colors duration-300">
+      {/* Sidebar Collapse Toggle */}
+      <button
+        onClick={toggleCollapsed}
+        className="hidden lg:flex items-center justify-center p-2 rounded-xl text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors mr-4 cursor-pointer"
+        title="Menüyü Aç/Kapat"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Global Search Input */}
       <div className="flex-1 max-w-md hidden md:block" ref={containerRef}>
         <div className="relative">

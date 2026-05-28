@@ -135,22 +135,6 @@ export default function Sidebar({ user }: SidebarProps) {
 
         {/* Footer / User Profile & Logout */}
         <div className={`border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-3 transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'}`}>
-          {/* Collapse Toggle Button (desktop only) */}
-          <button
-            onClick={toggleCollapsed}
-            className={`hidden lg:flex items-center justify-center w-full py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all`}
-            title={isCollapsed ? 'Menüyü Genişlet' : 'Menüyü Daralt'}
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            <span
-              className={`whitespace-nowrap text-xs font-medium overflow-hidden transition-all duration-300 ${
-                isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-1.5'
-              }`}
-            >
-              Daralt
-            </span>
-          </button>
-
           {/* User Card */}
           {user && !isCollapsed && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-100 dark:border-zinc-800/40">

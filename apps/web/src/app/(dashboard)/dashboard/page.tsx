@@ -715,7 +715,7 @@ export default function DashboardPage() {
           {/* Widget Ekle Button */}
           <button
             onClick={() => setIsAddWidgetOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-650 hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/10 hover:shadow active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/10 hover:shadow active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Widget Ekle

@@ -73,6 +73,7 @@ export default function RaporlarPage() {
       ]);
 
       const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'StockManager';
 
       // Sheet 1: Stok Snapshot
       const ws1 = workbook.addWorksheet('Stok Snapshot');
@@ -206,12 +207,21 @@ export default function RaporlarPage() {
 
   const generateExcel = async (title: string, columns: any[], rows: any[]) => {
     const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'StockManager';
     const worksheet = workbook.addWorksheet(title);
 
-    worksheet.columns = columns;
+    worksheet.columns = columns.map(col => ({
+      ...col,
+      header: String(col.header)
+    }));
 
     rows.forEach((row) => {
-      worksheet.addRow(row);
+      const stringifiedRow: any = {};
+      Object.keys(row).forEach((key) => {
+        const val = row[key];
+        stringifiedRow[key] = typeof val === 'string' ? String(val) : val;
+      });
+      worksheet.addRow(stringifiedRow);
     });
 
     // Stil Ekle (Header)

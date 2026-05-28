@@ -150,6 +150,7 @@ export default function StockMovementImportModal({
   // Excel Şablonu İndir
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'StockManager';
     const worksheet = workbook.addWorksheet('Stok_Hareketi_Sablonu');
 
     worksheet.columns = [

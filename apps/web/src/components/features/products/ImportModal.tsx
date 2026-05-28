@@ -165,6 +165,7 @@ export default function ImportModal({
   // Excel Şablonu İndir (Örnek verilerle doldurulmuş)
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'StockManager';
     const worksheet = workbook.addWorksheet('Urun_Sablonu');
 
     worksheet.columns = [
