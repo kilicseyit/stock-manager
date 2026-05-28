@@ -92,15 +92,20 @@ export default function TedarikcilerPage() {
     }
   });
 
+  const [hoverRating, setHoverRating] = useState(0);
+
   const {
     register,
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<SupplierFormValues>({
     defaultValues: { name: '', contactName: '', email: '', phone: '', rating: 5 },
   });
+
+  const currentRating = watch('rating');
 
   const openCreateForm = () => {
     setEditingId(null);
@@ -411,18 +416,31 @@ export default function TedarikcilerPage() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Değerlendirme (Rating: 1 - 5 Yıldız)
+                  Değerlendirme
                 </label>
-                <select
-                  {...register('rating')}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-                >
-                  {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>
-                      {n} Yıldız
-                    </option>
+                <div className="flex items-center gap-1.5 py-1.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setValue('rating', n)}
+                      onMouseEnter={() => setHoverRating(n)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="transition-transform hover:scale-110 active:scale-95"
+                    >
+                      <Star
+                        className={`w-7 h-7 transition-colors duration-150 ${
+                          n <= (hoverRating || currentRating)
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'fill-none text-zinc-300 dark:text-zinc-600'
+                        }`}
+                      />
+                    </button>
                   ))}
-                </select>
+                  <span className="ml-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                    {hoverRating || currentRating} / 5
+                  </span>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

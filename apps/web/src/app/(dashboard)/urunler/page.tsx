@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Inbox,
   CheckCircle2,
-  QrCode
+  QrCode,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -62,6 +64,19 @@ export default function ProductsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
   const [qrProduct, setQrProduct] = useState<ProductItem | null>(null);
+
+  // View Mode — 'list' | 'card' (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<'list' | 'card'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('products_view_mode') as 'list' | 'card') || 'list';
+    }
+    return 'list';
+  });
+
+  const handleViewMode = (mode: 'list' | 'card') => {
+    setViewMode(mode);
+    localStorage.setItem('products_view_mode', mode);
+  };
 
   // Selection & Bulk Delete state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -301,6 +316,32 @@ export default function ProductsPage() {
             ))}
           </select>
         </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-0.5 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+          <button
+            onClick={() => handleViewMode('list')}
+            className={`p-2 rounded-lg transition-all ${
+              viewMode === 'list'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+            title="Liste Görünümü"
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleViewMode('card')}
+            className={`p-2 rounded-lg transition-all ${
+              viewMode === 'card'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+            title="Kart Görünümü"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Products Table / Cards Panel */}
@@ -328,6 +369,115 @@ export default function ProductsPage() {
               >
                 Filtreleri Temizle
               </button>
+            )}
+          </div>
+        ) : viewMode === 'card' ? (
+          /* Card Grid View */
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+              {accumulatedProducts.map((product) => {
+                const totalStock = getProductStock(product.stockItems);
+                const isOutOfStock = totalStock === 0;
+                const isLowStock = totalStock > 0 && totalStock <= product.minStock;
+                const isSelected = selectedIds.includes(product.id);
+
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() =>
+                      setSelectedIds((prev) =>
+                        prev.includes(product.id)
+                          ? prev.filter((id) => id !== product.id)
+                          : [...prev, product.id]
+                      )
+                    }
+                    className={`relative group flex flex-col rounded-2xl border transition-all duration-200 cursor-pointer select-none hover:shadow-lg hover:-translate-y-0.5 ${
+                      isSelected
+                        ? 'border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20 shadow-md shadow-indigo-500/10'
+                        : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-zinc-700'
+                    }`}
+                  >
+                    {/* Product Image */}
+                    <div className="w-full aspect-square rounded-t-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <Package className="w-10 h-10 text-zinc-300 dark:text-zinc-600" />
+                      )}
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="flex flex-col gap-2 p-3 flex-1">
+                      <span className="inline-flex self-start px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                        {product.sku}
+                      </span>
+                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
+                        {product.name}
+                      </p>
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">
+                        {product.category?.name || '—'}
+                      </p>
+                      <div className="mt-auto">
+                        {isOutOfStock ? (
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-900/20">
+                            Stok Yok
+                          </span>
+                        ) : isLowStock ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-100/50 dark:border-amber-900/20">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            {totalStock} {product.unit}
+                          </span>
+                        ) : (
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-900/20">
+                            {totalStock} {product.unit}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Hover action icons */}
+                    <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setQrProduct(product); }}
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-colors"
+                        title="QR Kod"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditClick(product); }}
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-colors"
+                        title="Düzenle"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-sm transition-colors"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {queryData?.nextCursor && (
+              <div className="flex justify-center pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isFetching}
+                  className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-2 disabled:opacity-50 hover:bg-zinc-50"
+                >
+                  {isFetching && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Daha Fazla Yükle
+                </button>
+              </div>
             )}
           </div>
         ) : (

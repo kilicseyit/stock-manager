@@ -18,8 +18,11 @@ import {
   X,
   User,
   ShieldAlert,
-  FolderTree
+  FolderTree,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { useSidebar } from './SidebarContext';
 
 interface SidebarProps {
   user?: {
@@ -31,18 +34,19 @@ interface SidebarProps {
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { isCollapsed, toggleCollapsed } = useSidebar();
 
   const menuItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, soon: false },
-    { name: 'Ürünler', href: '/urunler', icon: Package, soon: false },
-    { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree, soon: false },
-    { name: 'Stok', href: '/stok', icon: Boxes, soon: false },
-    { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin, soon: false },
-    { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck, soon: false },
-    { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet, soon: false },
-    { name: 'Raporlar', href: '/raporlar', icon: BarChart3, soon: false },
-    { name: 'Ayarlar', href: '/ayarlar', icon: Settings, soon: false },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Ürünler', href: '/urunler', icon: Package },
+    { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree },
+    { name: 'Stok', href: '/stok', icon: Boxes },
+    { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin },
+    { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck },
+    { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet },
+    { name: 'Raporlar', href: '/raporlar', icon: BarChart3 },
+    { name: 'Ayarlar', href: '/ayarlar', icon: Settings },
   ];
 
   const handleLogout = () => {
@@ -54,40 +58,46 @@ export default function Sidebar({ user }: SidebarProps) {
       {/* Mobile Toggle Button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => setIsMobileOpen(!isMobileOpen)}
           className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 shadow-md focus:outline-none"
         >
-          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
       {/* Backdrop for Mobile */}
-      {isOpen && (
+      {isMobileOpen && (
         <div
-          onClick={() => setIsOpen(false)}
+          onClick={() => setIsMobileOpen(false)}
           className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity"
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col justify-between border-r border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl transition-all duration-300
+          ${isCollapsed ? 'w-16' : 'w-64'}
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+        `}
       >
-        <div className="flex flex-col flex-1 pt-6 overflow-y-auto">
+        <div className="flex flex-col flex-1 pt-6 overflow-y-auto overflow-x-hidden min-h-0">
           {/* Logo / Header */}
-          <div className="px-6 mb-8 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-600/30">
+          <div className={`mb-8 flex items-center gap-2.5 transition-all duration-300 ${isCollapsed ? 'px-4 justify-center' : 'px-6'}`}>
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-600/30 shrink-0">
               S
             </div>
-            <span className="font-bold text-xl bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 bg-clip-text text-transparent">
+            <span
+              className={`font-bold text-xl bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 bg-clip-text text-transparent whitespace-nowrap transition-all duration-300 overflow-hidden ${
+                isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              }`}
+            >
               StockManager
             </span>
           </div>
 
           {/* Navigation Menu */}
-          <nav className="flex-1 px-4 space-y-1">
+          <nav className={`flex-1 space-y-1 transition-all duration-300 ${isCollapsed ? 'px-2' : 'px-4'}`}>
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
@@ -95,24 +105,28 @@ export default function Sidebar({ user }: SidebarProps) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-                    isActive
-                      ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
+                  onClick={() => setIsMobileOpen(false)}
+                  title={isCollapsed ? item.name : undefined}
+                  className={`flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all group
+                    ${isCollapsed ? 'px-2 justify-center' : 'px-4'}
+                    ${
+                      isActive
+                        ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
                 >
                   <Icon
-                    className={`w-4 h-4 transition-transform group-hover:scale-110 ${
+                    className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
                       isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-400 dark:text-zinc-500'
                     }`}
                   />
-                  <span className="flex-1">{item.name}</span>
-                  {item.soon && (
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-md border border-amber-200/50 dark:border-amber-700/30">
-                      soon
-                    </span>
-                  )}
+                  <span
+                    className={`flex-1 whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                      isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+                    }`}
+                  >
+                    {item.name}
+                  </span>
                 </Link>
               );
             })}
@@ -120,11 +134,27 @@ export default function Sidebar({ user }: SidebarProps) {
         </div>
 
         {/* Footer / User Profile & Logout */}
-        <div className="p-4 border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-3">
+        <div className={`border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-3 transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+          {/* Collapse Toggle Button (desktop only) */}
+          <button
+            onClick={toggleCollapsed}
+            className={`hidden lg:flex items-center justify-center w-full py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all`}
+            title={isCollapsed ? 'Menüyü Genişlet' : 'Menüyü Daralt'}
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            <span
+              className={`whitespace-nowrap text-xs font-medium overflow-hidden transition-all duration-300 ${
+                isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-1.5'
+              }`}
+            >
+              Daralt
+            </span>
+          </button>
+
           {/* User Card */}
-          {user && (
+          {user && !isCollapsed && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-100 dark:border-zinc-800/40">
-              <div className="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400">
+              <div className="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 shrink-0">
                 <User className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -141,13 +171,32 @@ export default function Sidebar({ user }: SidebarProps) {
             </div>
           )}
 
+          {/* User icon when collapsed */}
+          {user && isCollapsed && (
+            <div
+              className="flex items-center justify-center p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-100 dark:border-zinc-800/40"
+              title={user.name || 'Kullanıcı'}
+            >
+              <User className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+            </div>
+          )}
+
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-red-200/50 dark:border-red-900/20 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-50 dark:hover:bg-red-950/20 transition-all active:scale-[0.98]"
+            title={isCollapsed ? 'Çıkış Yap' : undefined}
+            className={`flex items-center w-full py-2.5 rounded-xl border border-red-200/50 dark:border-red-900/20 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-50 dark:hover:bg-red-950/20 transition-all active:scale-[0.98]
+              ${isCollapsed ? 'justify-center px-2' : 'justify-center gap-2 px-4'}
+            `}
           >
-            <LogOut className="w-4 h-4" />
-            Çıkış Yap
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span
+              className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              }`}
+            >
+              Çıkış Yap
+            </span>
           </button>
         </div>
       </aside>

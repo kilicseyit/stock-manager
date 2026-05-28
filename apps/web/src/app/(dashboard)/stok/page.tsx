@@ -16,9 +16,10 @@ import {
   Package,
   AlertTriangle,
   Activity,
-  ChevronDown,
   RefreshCw,
   Upload,
+  Search,
+  X,
 } from 'lucide-react';
 import StockMovementImportModal from '@/components/features/inventory/StockMovementImportModal';
 
@@ -36,6 +37,13 @@ export default function StokPage() {
   const [showForm, setShowForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('');
+
+  // Stock grid filters (client-side)
+  const [stockSearch, setStockSearch] = useState('');
+  const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'low' | 'out' | 'ok'>('all');
+
+  // History search (client-side)
+  const [historySearch, setHistorySearch] = useState('');
 
   // BroadcastChannel — cross-tab real-time updates
   const { broadcastUpdate, onInventoryUpdate } = useInventoryBroadcast();
@@ -205,29 +213,100 @@ export default function StokPage() {
 
       {/* Tab Content */}
       {tab === 'grid' && (
-        <StockGrid
-          items={stockQuery.data ?? []}
-          isLoading={stockQuery.isLoading}
-        />
+        <div className="space-y-4">
+          {/* Stock Grid Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl shadow-sm">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Ürün adı veya SKU ile ara..."
+                value={stockSearch}
+                onChange={(e) => setStockSearch(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/30 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+              />
+              {stockSearch && (
+                <button onClick={() => setStockSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {/* Status Filter */}
+            <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
+              {(['all', 'ok', 'low', 'out'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStockStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    stockStatusFilter === s
+                      ? s === 'out'
+                        ? 'bg-rose-500 text-white shadow-sm'
+                        : s === 'low'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : s === 'ok'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  {s === 'all' ? 'Tüm Stok' : s === 'ok' ? 'Normal' : s === 'low' ? 'Düşük' : 'Stok Yok'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <StockGrid
+            items={(stockQuery.data ?? []).filter((item) => {
+              const nameMatch = !stockSearch ||
+                item.product.name.toLowerCase().includes(stockSearch.toLowerCase()) ||
+                item.product.sku.toLowerCase().includes(stockSearch.toLowerCase());
+              const statusMatch =
+                stockStatusFilter === 'all' ? true :
+                stockStatusFilter === 'out' ? item.quantity === 0 :
+                stockStatusFilter === 'low' ? item.quantity > 0 && item.quantity <= item.product.minStock :
+                item.quantity > item.product.minStock;
+              return nameMatch && statusMatch;
+            })}
+            isLoading={stockQuery.isLoading}
+          />
+        </div>
       )}
 
       {tab === 'history' && (
         <div className="space-y-4">
-          {/* Filtre */}
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-              >
-                <option value="">Tüm Hareketler</option>
-                <option value="IN">Giriş</option>
-                <option value="OUT">Çıkış</option>
-                <option value="TRANSFER">Transfer</option>
-                <option value="ADJUSTMENT">Düzeltme</option>
-              </select>
-              <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+          {/* Hareket Geçmişi Filtreleri */}
+          <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl shadow-sm">
+            {/* Ürün Adı / SKU Arama */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Ürün adı veya SKU ile ara..."
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/30 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+              />
+              {historySearch && (
+                <button onClick={() => setHistorySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {/* Hareket Tipi Toggle */}
+            <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex-wrap">
+              {[{ value: '', label: 'Tümü' }, { value: 'IN', label: 'Giriş' }, { value: 'OUT', label: 'Çıkış' }, { value: 'TRANSFER', label: 'Transfer' }, { value: 'ADJUSTMENT', label: 'Düzeltme' }].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTypeFilter(opt.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    typeFilter === opt.value
+                      ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -260,7 +339,13 @@ export default function StokPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-                    {historyQuery.data.items.map((m) => {
+                    {historyQuery.data.items
+                      .filter((m) =>
+                        !historySearch ||
+                        m.product.name.toLowerCase().includes(historySearch.toLowerCase()) ||
+                        m.product.sku.toLowerCase().includes(historySearch.toLowerCase())
+                      )
+                      .map((m) => {
                       const typeInfo = movementTypeLabels[m.type] ?? movementTypeLabels.IN;
                       const TypeIcon = typeInfo.icon;
                       return (

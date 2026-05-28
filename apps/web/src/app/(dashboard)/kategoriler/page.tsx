@@ -13,7 +13,9 @@ import {
   Layers, 
   AlertCircle, 
   Check, 
-  X 
+  X,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
@@ -75,6 +77,19 @@ export default function CategoriesPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
   const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
+
+  // View Mode — 'tree' | 'card' (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<'tree' | 'card'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('categories_view_mode') as 'tree' | 'card') || 'tree';
+    }
+    return 'tree';
+  });
+
+  const handleViewMode = (mode: 'tree' | 'card') => {
+    setViewMode(mode);
+    localStorage.setItem('categories_view_mode', mode);
+  };
 
   // Form helpers
   const resetForm = () => {
@@ -149,17 +164,42 @@ export default function CategoriesPage() {
             Hiyerarşik ürün kategorilerini ağaç yapısında düzenleyin ve yönetin.
           </p>
         </div>
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-0.5 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+          <button
+            onClick={() => handleViewMode('tree')}
+            className={`p-2 rounded-lg transition-all ${
+              viewMode === 'tree'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+            title="Ağaç Görünümü"
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleViewMode('card')}
+            className={`p-2 rounded-lg transition-all ${
+              viewMode === 'card'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+            title="Kart Görünümü"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Main Grid View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className={viewMode === 'card' ? 'flex flex-col gap-8' : 'grid grid-cols-1 lg:grid-cols-3 gap-8'}>
         
-        {/* Left Column: Tree Visualizer */}
-        <div className="lg:col-span-2 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl shadow-sm space-y-6">
+        {/* Left Column: Tree Visualizer or Card Grid */}
+        <div className={`${viewMode === 'card' ? '' : 'lg:col-span-2'} p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-xl shadow-sm space-y-6`}>
           <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <h2 className="font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
               <Layers className="w-5 h-5 text-zinc-500" />
-              Kategori Hiyerarşisi
+              {viewMode === 'card' ? 'Tüm Kategoriler' : 'Kategori Hiyerarşisi'}
             </h2>
             {categoryTree && (
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
@@ -173,6 +213,69 @@ export default function CategoriesPage() {
               <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
               <p className="text-sm font-medium">Kategori ağacı yükleniyor...</p>
             </div>
+          ) : viewMode === 'card' ? (
+            /* Card Grid View */
+            (!flatCategories || flatCategories.length === 0) ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                <div className="p-4 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
+                  <Folder className="w-10 h-10" />
+                </div>
+                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Kategori Bulunamadı</h3>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {flatCategories?.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className="group relative flex flex-col gap-3 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default"
+                  >
+                    {/* Icon */}
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      cat.parent ? 'bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400' : 'bg-indigo-100 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400'
+                    }`}>
+                      <Folder className="w-5 h-5" />
+                    </div>
+
+                    {/* Name & parent */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{cat.name}</p>
+                      {cat.parent && (
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate">
+                          ↳ {cat.parent.name}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Product count badge */}
+                    <span className={`self-start text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      cat.parent
+                        ? 'bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400'
+                        : 'bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400'
+                    }`}>
+                      {cat._count.products} Ürün
+                    </span>
+
+                    {/* Hover actions */}
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEditClick({ id: cat.id, name: cat.name, parentId: cat.parentId })}
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-colors"
+                        title="Düzenle"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => setCategoryToDelete({ id: cat.id, name: cat.name })}
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-sm transition-colors"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : !categoryTree || categoryTree.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
               <div className="p-4 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
@@ -404,7 +507,7 @@ export default function CategoriesPage() {
                 <option value="">(Ana Kategori)</option>
                 {parentOptions.map((opt) => (
                   <option key={opt.id} value={opt.id}>
-                    {opt.parent ? `${opt.parent.name} > ` : ''}{opt.name}
+                    {opt.parent ? `\u00a0\u00a0\u00a0└ ${opt.name}` : opt.name}
                   </option>
                 ))}
               </select>
