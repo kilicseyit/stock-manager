@@ -539,7 +539,8 @@ export default function ProductsPage() {
 
       {/* Floating Action Toolbar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-[24px] left-1/2 -translate-x-1/2 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-50 min-w-[320px] sm:min-w-[450px] animate-slideUp">
+        <div className="fixed bottom-[24px] left-0 right-0 flex justify-center z-50 pointer-events-none">
+          <div className="flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl min-w-[320px] sm:min-w-[450px] pointer-events-auto mx-auto animate-slideUpSimple">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/55 text-indigo-600 dark:text-indigo-400">
               <Package className="w-4 h-4" />
@@ -572,6 +573,7 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

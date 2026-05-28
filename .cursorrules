@@ -1,5 +1,64 @@
-## PROJE KİMLİĞİ - Ad: Warehouse Management System (WMS) - Stack: Next.js 14 App Router + tRPC v11 + Prisma + PostgreSQL + Redis + Socket.io - Monorepo: Turborepo (apps/web + packages/db + packages/shared) - Dil: TypeScript strict mode ## KLASÖR KURALI — DOSYA OLUŞTURMADAN ÖNCE OKU - API mantığı: apps/web/server/routers/<domain>.ts (tRPC router) - Tip tanımları: packages/shared/types/<domain>.ts - Zod şemaları: packages/shared/schemas/<domain>.ts - Sayfa bileşeni: apps/web/app/(dashboard)/<route>/page.tsx - Feature bileşeni: apps/web/components/features/<domain>/ - Paylaşılan UI: apps/web/components/ui/ (sadece shadcn bileşenleri) - Custom hook: apps/web/hooks/use-<name>.ts - Zustand store: apps/web/store/<domain>.store.ts ## KESİN KURALLAR — ASLA YAPMA - "use client" directive'ini gereksiz yere ekleme (önce Server Component dene) - Prisma client'ı doğrudan component içinde kullanma (sadece tRPC router'da) - any tipi kullanma (unknown kullan, sonra dar) - console.log production kodunda bırakma - N+1 sorgu yaz (include ile join et) - Aynı Zod şemasını iki yerde tanımlama (packages/shared/schemas'dan import et) ## KOD ÜRETİRKEN 1. Önce packages/shared/schemas içinde Zod şeması oluştur 2. Prisma tipi packages/shared/types içine koy 3. tRPC router'a prosedürü ekle (input: zod şeması) 4. Sonra frontend hook veya component yaz Bu sıra her zaman geçerli. ## MEVCUT tRPC ROUTER'LAR apps/web/server/routers/ ├── auth.ts — login, register, session, kullanıcı bilgisi ├── products.ts — CRUD, barkod, arama, bulk import ├── inventory.ts — stok hareketi, transfer, sayım, rezervasyon ├── locations.ts — depo bölge/raf/lokasyon yönetimi ├── suppliers.ts — tedarikçi CRUD, performans ├── orders.ts — satın alma siparişi akışı ├── notifications.ts — bildirim merkezi, tercihler ├── analytics.ts — KPI, grafik verileri, raporlar └── users.ts — kullanıcı yönetimi, rol atama ## SOCKET.IO EVENT'LERİ (mevcut) - inventory:update → { productId, locationId, quantity, type } - notification:push → { userId, title, body, type } - order:status → { orderId, status, updatedBy } - import:progress → { jobId, progress, errors } ## PERFORMANS KURALLARI - Liste sayfaları: cursor-based pagination (offset değil) - Arama: minimum 300ms debounce, PostgreSQL trigram index - Ağır sorgular: Redis cache, TTL=300s (products), TTL=60s (inventory) - Görseller: next/image + Sharp optimizasyonu, WebP format - Real-time güncellemeler: Socket.io (REST polling kullanma) ## HATA YÖNETIMI STANDARDI
-typescript
+# WMS Project — Cursor Rules
+# Bu dosya proje kökünde .cursorrules olarak kayıt edilmeli
+
+## PROJE KİMLİĞİ
+- Ad: Warehouse Management System (WMS)
+- Stack: Next.js 14 App Router + tRPC v11 + Prisma + PostgreSQL + Redis + Socket.io
+- Monorepo: Turborepo (apps/web + packages/db + packages/shared)
+- Dil: TypeScript strict mode
+
+## KLASÖR KURALI — DOSYA OLUŞTURMADAN ÖNCE OKU
+- API mantığı: apps/web/server/routers/<domain>.ts (tRPC router)
+- Tip tanımları: packages/shared/types/<domain>.ts
+- Zod şemaları: packages/shared/schemas/<domain>.ts
+- Sayfa bileşeni: apps/web/app/(dashboard)/<route>/page.tsx
+- Feature bileşeni: apps/web/components/features/<domain>/
+- Paylaşılan UI: apps/web/components/ui/ (sadece shadcn bileşenleri)
+- Custom hook: apps/web/hooks/use-<name>.ts
+- Zustand store: apps/web/store/<domain>.store.ts
+
+## KESİN KURALLAR — ASLA YAPMA
+- "use client" directive'ini gereksiz yere ekleme (önce Server Component dene)
+- Prisma client'ı doğrudan component içinde kullanma (sadece tRPC router'da)
+- any tipi kullanma (unknown kullan, sonra dar)
+- console.log production kodunda bırakma
+- N+1 sorgu yaz (include ile join et)
+- Aynı Zod şemasını iki yerde tanımlama (packages/shared/schemas'dan import et)
+
+## KOD ÜRETİRKEN
+1. Önce packages/shared/schemas içinde Zod şeması oluştur
+2. Prisma tipi packages/shared/types içine koy
+3. tRPC router'a prosedürü ekle (input: zod şeması)
+4. Sonra frontend hook veya component yaz
+Bu sıra her zaman geçerli.
+
+## MEVCUT tRPC ROUTER'LAR
+apps/web/server/routers/
+├── auth.ts        — login, register, session, kullanıcı bilgisi
+├── products.ts    — CRUD, barkod, arama, bulk import
+├── inventory.ts   — stok hareketi, transfer, sayım, rezervasyon
+├── locations.ts   — depo bölge/raf/lokasyon yönetimi
+├── suppliers.ts   — tedarikçi CRUD, performans
+├── orders.ts      — satın alma siparişi akışı
+├── notifications.ts — bildirim merkezi, tercihler
+├── analytics.ts   — KPI, grafik verileri, raporlar
+└── users.ts       — kullanıcı yönetimi, rol atama
+
+## SOCKET.IO EVENT'LERİ (mevcut)
+- inventory:update    → { productId, locationId, quantity, type }
+- notification:push   → { userId, title, body, type }
+- order:status        → { orderId, status, updatedBy }
+- import:progress     → { jobId, progress, errors }
+
+## PERFORMANS KURALLARI
+- Liste sayfaları: cursor-based pagination (offset değil)
+- Arama: minimum 300ms debounce, PostgreSQL trigram index
+- Ağır sorgular: Redis cache, TTL=300s (products), TTL=60s (inventory)
+- Görseller: next/image + Sharp optimizasyonu, WebP format
+- Real-time güncellemeler: Socket.io (REST polling kullanma)
+
+## HATA YÖNETIMI STANDARDI
+```typescript
 // tRPC router'da
 throw new TRPCError({
   code: 'BAD_REQUEST',
@@ -10,3 +69,4 @@ throw new TRPCError({
 // Component'te
 const { data, error, isLoading } = trpc.products.getAll.useQuery();
 // Her sorguda isLoading ve error state'i handle et
+```

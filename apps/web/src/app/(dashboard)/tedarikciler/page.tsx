@@ -603,37 +603,39 @@ export default function TedarikcilerPage() {
 
       {/* Floating Action Toolbar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-[24px] left-1/2 -translate-x-1/2 flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl z-50 min-w-[320px] sm:min-w-[450px] animate-slideUp">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/55 text-indigo-600 dark:text-indigo-400">
-              <Truck className="w-4 h-4" />
+        <div className="fixed bottom-[24px] left-0 right-0 flex justify-center z-50 pointer-events-none">
+          <div className="flex items-center justify-between gap-6 px-6 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl shadow-2xl min-w-[320px] sm:min-w-[450px] pointer-events-auto mx-auto animate-slideUpSimple">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/55 text-indigo-600 dark:text-indigo-400">
+                <Truck className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                {selectedIds.length} tedarikçi seçildi
+              </span>
             </div>
-            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-              {selectedIds.length} tedarikçi seçildi
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {suppliersQuery.data?.items && selectedIds.length < suppliersQuery.data.items.length && (
+            <div className="flex items-center gap-2">
+              {suppliersQuery.data?.items && selectedIds.length < suppliersQuery.data.items.length && (
+                <button
+                  onClick={() => setSelectedIds(suppliersQuery.data.items.map((s) => s.id))}
+                  className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
+                >
+                  Tümünü Seç
+                </button>
+              )}
               <button
-                onClick={() => setSelectedIds(suppliersQuery.data.items.map((s) => s.id))}
+                onClick={() => setSelectedIds([])}
                 className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
               >
-                Tümünü Seç
+                Seçimi Temizle
               </button>
-            )}
-            <button
-              onClick={() => setSelectedIds([])}
-              className="px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
-            >
-              Seçimi Temizle
-            </button>
-            <button
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-rose-500/10 active:scale-[0.98]"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Seçilenleri Sil
-            </button>
+              <button
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-rose-500/10 active:scale-[0.98]"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Seçilenleri Sil
+              </button>
+            </div>
           </div>
         </div>
       )}
