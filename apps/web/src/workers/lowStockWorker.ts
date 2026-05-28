@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { prisma } from '@/lib/prisma';
 import { getRedisConnection, LOW_STOCK_QUEUE } from '@/lib/queue';
 import { subHours } from 'date-fns';
+import { sendLowStockAlert } from '@/lib/email';
 
 /**
  * Düşük stok kontrolü iş mantığı.
@@ -34,7 +35,7 @@ export async function runLowStockCheck(): Promise<number> {
   // Bildirim alacak kullanıcıları bul (SUPER_ADMIN ve WAREHOUSE_MANAGER)
   const managers = await prisma.user.findMany({
     where: { role: { in: ['SUPER_ADMIN', 'WAREHOUSE_MANAGER'] } },
-    select: { id: true },
+    select: { id: true, email: true },
   });
 
   if (managers.length === 0) {
@@ -74,6 +75,15 @@ export async function runLowStockCheck(): Promise<number> {
           },
         },
       });
+
+      // E-posta bildirimi gönder (Resend)
+      await sendLowStockAlert({
+        productName: item.product.name,
+        sku: item.product.sku,
+        quantity: item.quantity,
+        minStock: item.product.minStock,
+      }, manager.email);
+
       created++;
     }
   }

@@ -16,6 +16,7 @@ export const locationRouter = router({
       include: {
         warehouse: { select: { id: true, name: true } },
         _count: { select: { stockItems: true } },
+        stockItems: { select: { quantity: true } },
       },
       orderBy: [{ warehouse: { name: 'asc' } }, { zone: 'asc' }, { aisle: 'asc' }],
     });

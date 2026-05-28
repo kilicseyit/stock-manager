@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/trpc/client';
 import {
@@ -13,8 +13,26 @@ import {
   BarChart3,
   MapPin,
   RefreshCw,
+  Settings,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import DashboardWidget from '@/components/features/dashboard/DashboardWidget';
+import WidgetSettingsModal from '@/components/features/dashboard/WidgetSettingsModal';
 
 const MovementTrendChart = dynamic(
   () => import('@/components/features/dashboard/MovementTrendChart'),
@@ -71,6 +89,82 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [daysFilter, setDaysFilter] = useState(30);
+
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(['kpi', 'trend', 'category', 'top-products', 'occupancy']);
+  const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>({
+    kpi: true,
+    trend: true,
+    category: true,
+    'top-products': true,
+    occupancy: true,
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('dashboard_widget_order');
+    const savedVisibility = localStorage.getItem('dashboard_widget_visibility');
+    if (savedOrder) {
+      try {
+        setWidgetOrder(JSON.parse(savedOrder));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (savedVisibility) {
+      try {
+        setWidgetVisibility(JSON.parse(savedVisibility));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const saveWidgetOrder = (newOrder: string[]) => {
+    setWidgetOrder(newOrder);
+    localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+  };
+
+  const handleToggleVisibility = (id: string) => {
+    const newVisibility = { ...widgetVisibility, [id]: !widgetVisibility[id] };
+    setWidgetVisibility(newVisibility);
+    localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
+  };
+
+  const handleResetSettings = () => {
+    const defaultOrder = ['kpi', 'trend', 'category', 'top-products', 'occupancy'];
+    const defaultVisibility = {
+      kpi: true,
+      trend: true,
+      category: true,
+      'top-products': true,
+      occupancy: true,
+    };
+    setWidgetOrder(defaultOrder);
+    setWidgetVisibility(defaultVisibility);
+    localStorage.removeItem('dashboard_widget_order');
+    localStorage.removeItem('dashboard_widget_visibility');
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = widgetOrder.indexOf(active.id as string);
+      const newIndex = widgetOrder.indexOf(over.id as string);
+      const newOrder = arrayMove(widgetOrder, oldIndex, newIndex);
+      saveWidgetOrder(newOrder);
+    }
+  };
 
   // tRPC Queries
   const kpisQuery = trpc.analytics.getKPIs.useQuery(undefined, {
@@ -197,101 +291,144 @@ export default function DashboardPage() {
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+
+          {/* Settings Button */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-250 transition-all active:scale-95"
+            title="Panel Ayarları"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          const colors = colorStyles[kpi.color as keyof typeof colorStyles];
+      {/* Customizable Drag & Drop Layout */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {widgetOrder.map((id) => {
+              if (!widgetVisibility[id]) return null;
 
-          return (
-            <div
-              key={kpi.title}
-              className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                  {kpi.title}
-                </span>
-                <div className={`p-2.5 rounded-xl border ${colors}`}>
-                  <Icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                </div>
-              </div>
+              switch (id) {
+                case 'kpi':
+                  return (
+                    <DashboardWidget
+                      key={id}
+                      id={id}
+                      title="Temel Göstergeler (KPI)"
+                      icon={<TrendingUp className="w-4 h-4" />}
+                      className="col-span-1 lg:col-span-3"
+                    >
+                      {/* KPI Cards Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {kpis.map((kpi) => {
+                          const Icon = kpi.icon;
+                          const colors = colorStyles[kpi.color as keyof typeof colorStyles];
 
-              <div className="mt-4 space-y-1">
-                <span className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
-                  {kpi.value}
-                </span>
-                <p className="text-[11px] text-zinc-450 dark:text-zinc-500">{kpi.desc}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                          return (
+                            <div
+                              key={kpi.title}
+                              className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                                  {kpi.title}
+                                </span>
+                                <div className={`p-2.5 rounded-xl border ${colors}`}>
+                                  <Icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                </div>
+                              </div>
 
-      {/* Graphs Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Movement Trend Chart (AreaChart) */}
-        <div className="lg:col-span-2 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-500" />
-              <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
-                Stok Giriş / Çıkış Hareketi Trendi
-              </h2>
-            </div>
-            <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-650 dark:text-indigo-400 border border-indigo-150 px-2 py-0.5 rounded-full font-bold">
-              Son {daysFilter} Gün
-            </span>
+                              <div className="mt-4 space-y-1">
+                                <span className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
+                                  {kpi.value}
+                                </span>
+                                <p className="text-[11px] text-zinc-450 dark:text-zinc-500">{kpi.desc}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </DashboardWidget>
+                  );
+                case 'trend':
+                  return (
+                    <DashboardWidget
+                      key={id}
+                      id={id}
+                      title="Stok Giriş / Çıkış Hareketi Trendi"
+                      icon={<Calendar className="w-4 h-4" />}
+                      className="col-span-1 lg:col-span-2"
+                    >
+                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+                        <MovementTrendChart data={trendQuery.data} />
+                      </div>
+                    </DashboardWidget>
+                  );
+                case 'category':
+                  return (
+                    <DashboardWidget
+                      key={id}
+                      id={id}
+                      title="Kategori Dağılımı"
+                      icon={<Layers className="w-4 h-4" />}
+                      className="col-span-1"
+                    >
+                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+                        <CategoryDistributionChart data={categoryQuery.data} />
+                      </div>
+                    </DashboardWidget>
+                  );
+                case 'top-products':
+                  return (
+                    <DashboardWidget
+                      key={id}
+                      id={id}
+                      title="En Aktif Ürünler (Son Stok Hareket Sayıları)"
+                      icon={<BarChart3 className="w-4 h-4" />}
+                      className="col-span-1 lg:col-span-2"
+                    >
+                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+                        <TopProductsChart data={topProductsQuery.data} />
+                      </div>
+                    </DashboardWidget>
+                  );
+                case 'occupancy':
+                  return (
+                    <DashboardWidget
+                      key={id}
+                      id={id}
+                      title="En Dolu Lokasyonlar (%)"
+                      icon={<MapPin className="w-4 h-4" />}
+                      className="col-span-1"
+                    >
+                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+                        <LocationOccupancyChart data={occupancyQuery.data} />
+                      </div>
+                    </DashboardWidget>
+                  );
+                default:
+                  return null;
+              }
+            })}
           </div>
+        </SortableContext>
+      </DndContext>
 
-          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-            <MovementTrendChart data={trendQuery.data} />
-          </div>
-        </div>
-
-        {/* Category Distribution (PieChart) */}
-        <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-emerald-500" />
-            <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">Kategori Dağılımı</h2>
-          </div>
-
-          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-            <CategoryDistributionChart data={categoryQuery.data} />
-          </div>
-        </div>
-
-        {/* Top Active Products (BarChart) */}
-        <div className="lg:col-span-2 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-amber-500" />
-            <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
-              En Aktif Ürünler (Son Stok Hareket Sayıları)
-            </h2>
-          </div>
-
-          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-            <TopProductsChart data={topProductsQuery.data} />
-          </div>
-        </div>
-
-        {/* Location Occupancy (Horizontal BarChart) */}
-        <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-rose-500" />
-            <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
-              En Dolu Lokasyonlar (%)
-            </h2>
-          </div>
-
-          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-            <LocationOccupancyChart data={occupancyQuery.data} />
-          </div>
-        </div>
-      </div>
+      {/* Widget Settings side drawer */}
+      <WidgetSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        widgetOrder={widgetOrder}
+        widgetVisibility={widgetVisibility}
+        onToggleVisibility={handleToggleVisibility}
+        onReset={handleResetSettings}
+      />
     </div>
   );
 }

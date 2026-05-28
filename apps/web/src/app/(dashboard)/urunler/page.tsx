@@ -15,13 +15,15 @@ import {
   ArrowRight, 
   AlertCircle,
   Inbox,
-  CheckCircle2
+  CheckCircle2,
+  QrCode
 } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 import { useDebounce } from '@/hooks/useDebounce';
 import ProductFormModal from '@/components/features/products/ProductFormModal';
 import ImportModal from '@/components/features/products/ImportModal';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
+import QrCodeModal from '@/components/features/products/QrCodeModal';
 
 interface ProductItem {
   id: string;
@@ -59,6 +61,7 @@ export default function ProductsPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
+  const [qrProduct, setQrProduct] = useState<ProductItem | null>(null);
 
   // Selection & Bulk Delete state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -453,6 +456,17 @@ export default function ProductsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setQrProduct(product);
+                                }}
+                                className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
+                                title="QR Kod Üret"
+                              >
+                                <QrCode className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   handleEditClick(product);
                                 }}
                                 className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
@@ -575,6 +589,12 @@ export default function ProductsPage() {
         </div>
       </div>
       )}
+
+      {/* QR Code Viewer Modal */}
+      <QrCodeModal
+        product={qrProduct}
+        onClose={() => setQrProduct(null)}
+      />
     </div>
   );
 }
