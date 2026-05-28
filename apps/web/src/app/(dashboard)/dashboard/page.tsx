@@ -247,7 +247,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="h-80 w-full text-xs">
+          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
             <MovementTrendChart data={trendQuery.data} />
           </div>
         </div>
@@ -259,7 +259,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">Kategori Dağılımı</h2>
           </div>
 
-          <div className="h-80 w-full text-xs">
+          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
             <CategoryDistributionChart data={categoryQuery.data} />
           </div>
         </div>
@@ -273,7 +273,7 @@ export default function DashboardPage() {
             </h2>
           </div>
 
-          <div className="h-80 w-full text-xs">
+          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
             <TopProductsChart data={topProductsQuery.data} />
           </div>
         </div>
@@ -287,7 +287,7 @@ export default function DashboardPage() {
             </h2>
           </div>
 
-          <div className="h-80 w-full text-xs">
+          <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
             <LocationOccupancyChart data={occupancyQuery.data} />
           </div>
         </div>
