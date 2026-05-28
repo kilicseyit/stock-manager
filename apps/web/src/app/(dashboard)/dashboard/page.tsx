@@ -14,6 +14,14 @@ import {
   MapPin,
   RefreshCw,
   Settings,
+  Warehouse,
+  Truck,
+  TrendingDown,
+  CheckCircle,
+  Coins,
+  Lock,
+  Plus,
+  X,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import {
@@ -33,6 +41,7 @@ import {
 } from '@dnd-kit/sortable';
 import DashboardWidget from '@/components/features/dashboard/DashboardWidget';
 import WidgetSettingsModal from '@/components/features/dashboard/WidgetSettingsModal';
+import AddWidgetModal from '@/components/features/dashboard/AddWidgetModal';
 
 const MovementTrendChart = dynamic(
   () => import('@/components/features/dashboard/MovementTrendChart'),
@@ -86,6 +95,89 @@ function DashboardSkeleton() {
   );
 }
 
+const METRIC_DEFINITIONS = {
+  'metric-totalWarehouses': {
+    title: 'Toplam Depo Sayısı',
+    icon: Warehouse,
+    color: 'indigo',
+    desc: 'Sistemde tanımlı toplam depo sayısı',
+    valueKey: 'totalWarehouses',
+    isCurrency: false,
+  },
+  'metric-totalLocations': {
+    title: 'Toplam Lokasyon Sayısı',
+    icon: MapPin,
+    color: 'indigo',
+    desc: 'Bölge ve raf lokasyonlarının toplamı',
+    valueKey: 'totalLocations',
+    isCurrency: false,
+  },
+  'metric-activeSuppliers': {
+    title: 'Aktif Tedarikçi Sayısı',
+    icon: Truck,
+    color: 'emerald',
+    desc: 'Sistemdeki tedarikçi ortaklar',
+    valueKey: 'activeSuppliers',
+    isCurrency: false,
+  },
+  'metric-ordersThisMonth': {
+    title: 'Bu Ay Sipariş Sayısı',
+    icon: FileText,
+    color: 'amber',
+    desc: 'Bu ay içinde açılan satın almalar',
+    valueKey: 'ordersThisMonth',
+    isCurrency: false,
+  },
+  'metric-stockInThisMonth': {
+    title: 'Bu Ay Stok Girişi',
+    icon: TrendingUp,
+    color: 'emerald',
+    desc: 'Giren toplam envanter miktarı (IN)',
+    valueKey: 'stockInThisMonth',
+    isCurrency: false,
+  },
+  'metric-stockOutThisMonth': {
+    title: 'Bu Ay Stok Çıkışı',
+    icon: TrendingDown,
+    color: 'rose',
+    desc: 'Çıkan toplam envanter miktarı (OUT)',
+    valueKey: 'stockOutThisMonth',
+    isCurrency: false,
+  },
+  'metric-completedOrders': {
+    title: 'Tamamlanan Sipariş Sayısı',
+    icon: CheckCircle,
+    color: 'emerald',
+    desc: 'Kabul edilen siparişlerin toplamı',
+    valueKey: 'completedOrders',
+    isCurrency: false,
+  },
+  'metric-pendingOrdersValue': {
+    title: 'Bekleyen Sipariş Değeri',
+    icon: Coins,
+    color: 'amber',
+    desc: 'Bekleyen teslimatların toplam değeri',
+    valueKey: 'pendingOrdersValue',
+    isCurrency: true,
+  },
+  'metric-mostOccupiedLocation': {
+    title: 'En Dolu Lokasyon',
+    icon: AlertTriangle,
+    color: 'rose',
+    desc: 'Doluluk yüzdesi en yüksek olan raf',
+    valueKey: 'mostOccupiedLocation',
+    isCurrency: false,
+  },
+  'metric-totalReservedStock': {
+    title: 'Toplam Rezerve Stok',
+    icon: Lock,
+    color: 'amber',
+    desc: 'Rezerve durumdaki toplam miktar',
+    valueKey: 'totalReservedStock',
+    isCurrency: false,
+  },
+};
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [daysFilter, setDaysFilter] = useState(30);
@@ -105,6 +197,7 @@ export default function DashboardPage() {
     occupancy: 'small',
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false);
 
   useEffect(() => {
     const savedOrder = localStorage.getItem('dashboard_widget_order');
@@ -173,6 +266,31 @@ export default function DashboardPage() {
     localStorage.removeItem('dashboard_widget_sizes');
   };
 
+  const handleAddWidget = (id: string) => {
+    // 1. Görünürlüğü aç
+    const newVisibility = { ...widgetVisibility, [id]: true };
+    setWidgetVisibility(newVisibility);
+    localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
+
+    // 2. Sıralama listesine ekle
+    if (!widgetOrder.includes(id)) {
+      const newOrder = [...widgetOrder, id];
+      saveWidgetOrder(newOrder);
+    }
+  };
+
+  const handleRemoveWidget = (id: string) => {
+    // 1. Sıralama listesinden çıkar
+    const newOrder = widgetOrder.filter((wId) => wId !== id);
+    saveWidgetOrder(newOrder);
+
+    // 2. Görünürlüğü kapat
+    const newVisibility = { ...widgetVisibility, [id]: false };
+    setWidgetVisibility(newVisibility);
+    localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
+  };
+
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -216,12 +334,17 @@ export default function DashboardPage() {
     refetchOnWindowFocus: false,
   });
 
+  const additionalMetricsQuery = trpc.analytics.getAdditionalMetrics.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
   const isLoading =
     kpisQuery.isLoading ||
     trendQuery.isLoading ||
     topProductsQuery.isLoading ||
     categoryQuery.isLoading ||
-    occupancyQuery.isLoading;
+    occupancyQuery.isLoading ||
+    additionalMetricsQuery.isLoading;
 
   const handleRefresh = () => {
     kpisQuery.refetch();
@@ -229,6 +352,7 @@ export default function DashboardPage() {
     topProductsQuery.refetch();
     categoryQuery.refetch();
     occupancyQuery.refetch();
+    additionalMetricsQuery.refetch();
   };
 
   if (isLoading) {
@@ -327,6 +451,15 @@ export default function DashboardPage() {
             title="Panel Ayarları"
           >
             <Settings className="w-4 h-4" />
+          </button>
+
+          {/* Widget Ekle Button */}
+          <button
+            onClick={() => setIsAddWidgetOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-650 hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/10 hover:shadow active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Widget Ekle
           </button>
         </div>
       </div>
@@ -460,8 +593,48 @@ export default function DashboardPage() {
                     </DashboardWidget>
                   );
                 }
-                default:
+                default: {
+                  if (id.startsWith('metric-')) {
+                    const definition = METRIC_DEFINITIONS[id as keyof typeof METRIC_DEFINITIONS];
+                    if (!definition) return null;
+                    const Icon = definition.icon;
+                    const colors = colorStyles[definition.color as keyof typeof colorStyles];
+                    const rawValue = additionalMetricsQuery.data?.[definition.valueKey as keyof typeof additionalMetricsQuery.data] ?? 0;
+                    
+                    const displayValue = definition.isCurrency 
+                      ? `₺${Number(rawValue).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
+                      : rawValue;
+
+                    return (
+                      <DashboardWidget
+                        key={id}
+                        id={id}
+                        title={definition.title}
+                        icon={<Icon className="w-4 h-4" />}
+                        className="col-span-1"
+                        onRemove={() => handleRemoveWidget(id)}
+                      >
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">
+                              Gösterge
+                            </span>
+                            <div className={`p-2 rounded-lg border ${colors}`}>
+                              <Icon className="w-4.5 h-4.5" />
+                            </div>
+                          </div>
+                          <div className="mt-4 space-y-1">
+                            <span className="text-2xl font-black text-zinc-905 dark:text-zinc-50 tracking-tight">
+                              {displayValue}
+                            </span>
+                            <p className="text-[11px] text-zinc-450 dark:text-zinc-500 leading-normal">{definition.desc}</p>
+                          </div>
+                        </div>
+                      </DashboardWidget>
+                    );
+                  }
                   return null;
+                }
               }
             })}
           </div>
@@ -476,6 +649,15 @@ export default function DashboardPage() {
         widgetVisibility={widgetVisibility}
         onToggleVisibility={handleToggleVisibility}
         onReset={handleResetSettings}
+      />
+
+      {/* Widget Ekle Modal */}
+      <AddWidgetModal
+        isOpen={isAddWidgetOpen}
+        onClose={() => setIsAddWidgetOpen(false)}
+        widgetOrder={widgetOrder}
+        onAddWidget={handleAddWidget}
+        additionalMetrics={additionalMetricsQuery.data}
       />
     </div>
   );

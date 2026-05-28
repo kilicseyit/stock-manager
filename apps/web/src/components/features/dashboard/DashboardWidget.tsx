@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Maximize2 } from 'lucide-react';
+import { GripVertical, Maximize2, X } from 'lucide-react';
 
 interface DashboardWidgetProps {
   id: string;
@@ -13,6 +13,7 @@ interface DashboardWidgetProps {
   icon?: React.ReactNode;
   size?: 'small' | 'medium' | 'large';
   onSizeChange?: (size: 'small' | 'medium' | 'large') => void;
+  onRemove?: () => void;
 }
 
 export default function DashboardWidget({
@@ -23,6 +24,7 @@ export default function DashboardWidget({
   icon,
   size,
   onSizeChange,
+  onRemove,
 }: DashboardWidgetProps) {
   const {
     attributes,
@@ -126,6 +128,20 @@ export default function DashboardWidget({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Remove Widget Button */}
+          {onRemove && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              className="p-1 rounded-md text-zinc-400 hover:text-rose-500 dark:hover:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+              title="Kaldır"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           )}
 
           {/* Grab Handle */}

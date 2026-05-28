@@ -344,4 +344,113 @@ export const analyticsRouter = router({
       orderBy: { createdAt: 'desc' },
     });
   }),
+
+  /** Panel hazır metrik havuzu için ek KPI metrikleri */
+  getAdditionalMetrics: publicProcedure.query(async () => {
+    // 1. Toplam Depo Sayısı
+    const totalWarehouses = await prisma.warehouse.count();
+
+    // 2. Toplam Lokasyon Sayısı
+    const totalLocations = await prisma.location.count();
+
+    // 3. Aktif Tedarikçi Sayısı
+    const activeSuppliers = await prisma.supplier.count();
+
+    // 4. Bu Ay Sipariş Sayısı
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const ordersThisMonth = await prisma.purchaseOrder.count({
+      where: { createdAt: { gte: startOfMonth } }
+    });
+
+    // 5. Bu Ay Stok Girişi (IN)
+    const stockInMovements = await prisma.stockMovement.aggregate({
+      where: {
+        type: 'IN',
+        createdAt: { gte: startOfMonth }
+      },
+      _sum: { quantity: true }
+    });
+    const stockInThisMonth = stockInMovements._sum.quantity ?? 0;
+
+    // 6. Bu Ay Stok Çıkışı (OUT)
+    const stockOutMovements = await prisma.stockMovement.aggregate({
+      where: {
+        type: 'OUT',
+        createdAt: { gte: startOfMonth }
+      },
+      _sum: { quantity: true }
+    });
+    const stockOutThisMonth = stockOutMovements._sum.quantity ?? 0;
+
+    // 7. Tamamlanan Sipariş Sayısı
+    const completedOrders = await prisma.purchaseOrder.count({
+      where: { status: 'RECEIVED' }
+    });
+
+    // 8. Bekleyen Sipariş Değeri
+    const pendingOrdersList = await prisma.purchaseOrder.findMany({
+      where: {
+        status: { in: ['SENT', 'PARTIAL'] }
+      },
+      include: {
+        items: {
+          select: {
+            orderedQty: true,
+            receivedQty: true,
+            unitPrice: true
+          }
+        }
+      }
+    });
+
+    let pendingOrdersValue = 0;
+    pendingOrdersList.forEach(order => {
+      order.items.forEach(item => {
+        const remainingQty = Math.max(0, item.orderedQty - item.receivedQty);
+        pendingOrdersValue += remainingQty * item.unitPrice;
+      });
+    });
+
+    // 9. En Dolu Lokasyon
+    const locations = await prisma.location.findMany({
+      include: {
+        stockItems: {
+          select: { quantity: true },
+        },
+      },
+    });
+    const capacityPerLocation = 150;
+    let maxOccupancyLoc = 'Yok';
+    let maxOccupancyRate = 0;
+
+    locations.forEach(loc => {
+      const totalQty = loc.stockItems.reduce((sum, item) => sum + item.quantity, 0);
+      const rate = Math.min(100, Math.round((totalQty / capacityPerLocation) * 100));
+      if (rate > maxOccupancyRate) {
+        maxOccupancyRate = rate;
+        maxOccupancyLoc = `${loc.zone}-${loc.aisle || 'x'}-${loc.shelf || 'x'}-${loc.bin || 'x'}`;
+      }
+    });
+
+    // 10. Toplam Rezerve Stok
+    const reservedSum = await prisma.stockItem.aggregate({
+      _sum: { reservedQty: true }
+    });
+    const totalReservedStock = reservedSum._sum.reservedQty ?? 0;
+
+    return {
+      totalWarehouses,
+      totalLocations,
+      activeSuppliers,
+      ordersThisMonth,
+      stockInThisMonth,
+      stockOutThisMonth,
+      completedOrders,
+      pendingOrdersValue: Math.round(pendingOrdersValue * 100) / 100,
+      mostOccupiedLocation: maxOccupancyRate > 0 ? `${maxOccupancyLoc} (%${maxOccupancyRate})` : '—',
+      totalReservedStock,
+    };
+  }),
 });
