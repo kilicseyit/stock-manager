@@ -21,7 +21,6 @@ import {
   Coins,
   Lock,
   Plus,
-  X,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import {
@@ -32,6 +31,7 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -95,7 +95,41 @@ function DashboardSkeleton() {
   );
 }
 
-const METRIC_DEFINITIONS = {
+const ALL_METRICS = {
+  // Default KPIs
+  'kpi-totalProducts': {
+    title: 'Toplam SKU (Ürün)',
+    icon: Package,
+    color: 'indigo',
+    desc: 'Sistemde kayıtlı aktif ürün çeşidi',
+    valueKey: 'totalProducts',
+    isCurrency: false,
+  },
+  'kpi-totalStockValue': {
+    title: 'Toplam Stok Değeri',
+    icon: TrendingUp,
+    color: 'emerald',
+    desc: 'Mevcut envanterin satın alma değeri',
+    valueKey: 'totalStockValue',
+    isCurrency: true,
+  },
+  'kpi-pendingOrders': {
+    title: 'Bekleyen Sipariş',
+    icon: FileText,
+    color: 'amber',
+    desc: 'Yolda olan veya kısmi kabul edilen siparişler',
+    valueKey: 'pendingOrders',
+    isCurrency: false,
+  },
+  'kpi-criticalStockCount': {
+    title: 'Kritik Stok Uyarısı',
+    icon: AlertTriangle,
+    color: 'rose',
+    desc: 'Minimum stok seviyesinin altındaki kalemler',
+    valueKey: 'criticalStockCount',
+    isCurrency: false,
+  },
+  // Custom Metrics
   'metric-totalWarehouses': {
     title: 'Toplam Depo Sayısı',
     icon: Warehouse,
@@ -178,18 +212,44 @@ const METRIC_DEFINITIONS = {
   },
 };
 
+const colorStyles = {
+  indigo: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-150 dark:border-indigo-900/30',
+  emerald: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-150 dark:border-emerald-900/30',
+  amber: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-150 dark:border-amber-900/30',
+  rose: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30 border-rose-150 dark:border-rose-900/30',
+};
+
+interface DroppableContainerProps {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function DroppableContainer({ id, children, className }: DroppableContainerProps) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={className}>
+      {children}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [daysFilter, setDaysFilter] = useState(30);
 
-  const [widgetOrder, setWidgetOrder] = useState<string[]>(['kpi', 'trend', 'category', 'top-products', 'occupancy']);
-  const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>({
-    kpi: true,
-    trend: true,
-    category: true,
-    'top-products': true,
-    occupancy: true,
-  });
+  const [kpiWidgets, setKpiWidgets] = useState<string[]>([
+    'kpi-totalProducts',
+    'kpi-totalStockValue',
+    'kpi-pendingOrders',
+    'kpi-criticalStockCount'
+  ]);
+  const [mainWidgets, setMainWidgets] = useState<string[]>([
+    'trend',
+    'category',
+    'top-products',
+    'occupancy'
+  ]);
   const [widgetSizes, setWidgetSizes] = useState<Record<string, 'small' | 'medium' | 'large'>>({
     trend: 'medium',
     category: 'small',
@@ -200,19 +260,19 @@ export default function DashboardPage() {
   const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false);
 
   useEffect(() => {
-    const savedOrder = localStorage.getItem('dashboard_widget_order');
-    const savedVisibility = localStorage.getItem('dashboard_widget_visibility');
+    const savedKpis = localStorage.getItem('dashboard_kpi_widgets');
+    const savedMain = localStorage.getItem('dashboard_main_widgets');
     const savedSizes = localStorage.getItem('dashboard_widget_sizes');
-    if (savedOrder) {
+    if (savedKpis) {
       try {
-        setWidgetOrder(JSON.parse(savedOrder));
+        setKpiWidgets(JSON.parse(savedKpis));
       } catch (e) {
         console.error(e);
       }
     }
-    if (savedVisibility) {
+    if (savedMain) {
       try {
-        setWidgetVisibility(JSON.parse(savedVisibility));
+        setMainWidgets(JSON.parse(savedMain));
       } catch (e) {
         console.error(e);
       }
@@ -226,15 +286,12 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const saveWidgetOrder = (newOrder: string[]) => {
-    setWidgetOrder(newOrder);
-    localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
-  };
-
-  const handleToggleVisibility = (id: string) => {
-    const newVisibility = { ...widgetVisibility, [id]: !widgetVisibility[id] };
-    setWidgetVisibility(newVisibility);
-    localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
+  const findContainer = (id: string) => {
+    if (id === 'kpi') return 'kpi';
+    if (id === 'widgets') return 'widgets';
+    if (kpiWidgets.includes(id)) return 'kpi';
+    if (mainWidgets.includes(id)) return 'widgets';
+    return null;
   };
 
   const handleSizeChange = (id: string, newSize: 'small' | 'medium' | 'large') => {
@@ -244,52 +301,60 @@ export default function DashboardPage() {
   };
 
   const handleResetSettings = () => {
-    const defaultOrder = ['kpi', 'trend', 'category', 'top-products', 'occupancy'];
-    const defaultVisibility = {
-      kpi: true,
-      trend: true,
-      category: true,
-      'top-products': true,
-      occupancy: true,
-    };
+    const defaultKpis = [
+      'kpi-totalProducts',
+      'kpi-totalStockValue',
+      'kpi-pendingOrders',
+      'kpi-criticalStockCount'
+    ];
+    const defaultMain = [
+      'trend',
+      'category',
+      'top-products',
+      'occupancy'
+    ];
     const defaultSizes: Record<string, 'small' | 'medium' | 'large'> = {
       trend: 'medium',
       category: 'small',
       'top-products': 'medium',
       occupancy: 'small',
     };
-    setWidgetOrder(defaultOrder);
-    setWidgetVisibility(defaultVisibility);
+    setKpiWidgets(defaultKpis);
+    setMainWidgets(defaultMain);
     setWidgetSizes(defaultSizes);
-    localStorage.removeItem('dashboard_widget_order');
-    localStorage.removeItem('dashboard_widget_visibility');
-    localStorage.removeItem('dashboard_widget_sizes');
+    localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(defaultKpis));
+    localStorage.setItem('dashboard_main_widgets', JSON.stringify(defaultMain));
+    localStorage.setItem('dashboard_widget_sizes', JSON.stringify(defaultSizes));
   };
 
   const handleAddWidget = (id: string) => {
-    // 1. Görünürlüğü aç
-    const newVisibility = { ...widgetVisibility, [id]: true };
-    setWidgetVisibility(newVisibility);
-    localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
-
-    // 2. Sıralama listesine ekle
-    if (!widgetOrder.includes(id)) {
-      const newOrder = [...widgetOrder, id];
-      saveWidgetOrder(newOrder);
+    if (id.startsWith('kpi-')) {
+      if (!kpiWidgets.includes(id)) {
+        const newKpis = [...kpiWidgets, id];
+        setKpiWidgets(newKpis);
+        localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(newKpis));
+      }
+    } else {
+      if (!mainWidgets.includes(id)) {
+        const newMain = [...mainWidgets, id];
+        setMainWidgets(newMain);
+        localStorage.setItem('dashboard_main_widgets', JSON.stringify(newMain));
+      }
     }
   };
 
   const handleRemoveWidget = (id: string) => {
-    // 1. Sıralama listesinden çıkar
-    const newOrder = widgetOrder.filter((wId) => wId !== id);
-    saveWidgetOrder(newOrder);
-
-    // 2. Görünürlüğü kapat
-    const newVisibility = { ...widgetVisibility, [id]: false };
-    setWidgetVisibility(newVisibility);
-    localStorage.setItem('dashboard_widget_visibility', JSON.stringify(newVisibility));
+    if (kpiWidgets.includes(id)) {
+      const newKpis = kpiWidgets.filter((wId) => wId !== id);
+      setKpiWidgets(newKpis);
+      localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(newKpis));
+    }
+    if (mainWidgets.includes(id)) {
+      const newMain = mainWidgets.filter((wId) => wId !== id);
+      setMainWidgets(newMain);
+      localStorage.setItem('dashboard_main_widgets', JSON.stringify(newMain));
+    }
   };
-
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -302,14 +367,71 @@ export default function DashboardPage() {
     })
   );
 
+  const handleDragOver = (event: any) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeContainer = findContainer(activeId);
+    const overContainer = findContainer(overId);
+
+    if (!activeContainer || !overContainer || activeContainer === overContainer) {
+      return;
+    }
+
+    if (activeContainer === 'kpi' && overContainer === 'widgets') {
+      setKpiWidgets((prev) => prev.filter((id) => id !== activeId));
+      setMainWidgets((prev) => {
+        const overIndex = prev.indexOf(overId);
+        if (overIndex === -1) return [...prev, activeId];
+        return [...prev.slice(0, overIndex), activeId, ...prev.slice(overIndex)];
+      });
+    } else if (activeContainer === 'widgets' && overContainer === 'kpi') {
+      setMainWidgets((prev) => prev.filter((id) => id !== activeId));
+      setKpiWidgets((prev) => {
+        const overIndex = prev.indexOf(overId);
+        if (overIndex === -1) return [...prev, activeId];
+        return [...prev.slice(0, overIndex), activeId, ...prev.slice(overIndex)];
+      });
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = widgetOrder.indexOf(active.id as string);
-      const newIndex = widgetOrder.indexOf(over.id as string);
-      const newOrder = arrayMove(widgetOrder, oldIndex, newIndex);
-      saveWidgetOrder(newOrder);
+    
+    let latestKpis = [...kpiWidgets];
+    let latestMain = [...mainWidgets];
+
+    if (over) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+
+      const activeContainer = findContainer(activeId);
+      const overContainer = findContainer(overId);
+
+      if (activeContainer && overContainer && activeContainer === overContainer) {
+        if (activeContainer === 'kpi') {
+          const oldIndex = kpiWidgets.indexOf(activeId);
+          const newIndex = kpiWidgets.indexOf(overId);
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            latestKpis = arrayMove(kpiWidgets, oldIndex, newIndex);
+            setKpiWidgets(latestKpis);
+          }
+        } else {
+          const oldIndex = mainWidgets.indexOf(activeId);
+          const newIndex = mainWidgets.indexOf(overId);
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            latestMain = arrayMove(mainWidgets, oldIndex, newIndex);
+            setMainWidgets(latestMain);
+          }
+        }
+      }
     }
+
+    localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(latestKpis));
+    localStorage.setItem('dashboard_main_widgets', JSON.stringify(latestMain));
   };
 
   // tRPC Queries
@@ -359,49 +481,167 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  const kpiData = kpisQuery.data ?? {
-    totalProducts: 0,
-    totalStockValue: 0,
-    pendingOrders: 0,
-    criticalStockCount: 0,
+  const mergedMetrics = {
+    ...(kpisQuery.data ?? {}),
+    ...(additionalMetricsQuery.data ?? {}),
   };
 
-  const kpis = [
-    {
-      title: 'Toplam SKU (Ürün)',
-      value: kpiData.totalProducts,
-      icon: Package,
-      color: 'indigo',
-      desc: 'Sistemde kayıtlı aktif ürün çeşidi',
-    },
-    {
-      title: 'Toplam Stok Değeri',
-      value: `₺${kpiData.totalStockValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
-      icon: TrendingUp,
-      color: 'emerald',
-      desc: 'Mevcut envanterin satın alma değeri',
-    },
-    {
-      title: 'Bekleyen Sipariş',
-      value: kpiData.pendingOrders,
-      icon: FileText,
-      color: 'amber',
-      desc: 'Yolda olan veya kısmi kabul edilen siparişler',
-    },
-    {
-      title: 'Kritik Stok Uyarısı',
-      value: kpiData.criticalStockCount,
-      icon: AlertTriangle,
-      color: 'rose',
-      desc: 'Minimum stok seviyesinin altındaki kalemler',
-    },
-  ];
+  const renderWidget = (id: string, isKpiZone: boolean) => {
+    const isMetricOrKpi = id.startsWith('kpi-') || id.startsWith('metric-');
 
-  const colorStyles = {
-    indigo: 'text-indigo-650 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-150 dark:border-indigo-900/30',
-    emerald: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-150 dark:border-emerald-900/30',
-    amber: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-150 dark:border-amber-900/30',
-    rose: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30 border-rose-150 dark:border-rose-900/30',
+    if (isMetricOrKpi) {
+      const definition = ALL_METRICS[id as keyof typeof ALL_METRICS];
+      if (!definition) return null;
+
+      const Icon = definition.icon;
+      const colors = colorStyles[definition.color as keyof typeof colorStyles];
+      const rawValue = mergedMetrics[definition.valueKey as keyof typeof mergedMetrics] ?? 0;
+      
+      const displayValue = definition.isCurrency 
+        ? `₺${Number(rawValue).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
+        : rawValue;
+
+      return (
+        <DashboardWidget
+          key={id}
+          id={id}
+          title={definition.title}
+          icon={<Icon className="w-4 h-4" />}
+          className="col-span-1"
+          onRemove={() => handleRemoveWidget(id)}
+        >
+          <div className="flex-1 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                Mevcut Değer
+              </span>
+              <div className={`p-2.5 rounded-xl border ${colors}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 space-y-1">
+              <span className="text-2xl font-black text-zinc-905 dark:text-zinc-50 tracking-tight">
+                {displayValue}
+              </span>
+              <p className="text-[11px] text-zinc-450 dark:text-zinc-500 leading-normal">{definition.desc}</p>
+            </div>
+          </div>
+        </DashboardWidget>
+      );
+    }
+
+    switch (id) {
+      case 'trend': {
+        const currentSize = isKpiZone ? 'small' : (widgetSizes.trend || 'medium');
+        const sizeClass = isKpiZone 
+          ? 'col-span-1' 
+          : currentSize === 'small' 
+            ? 'col-span-1' 
+            : currentSize === 'medium' 
+              ? 'col-span-1 lg:col-span-2' 
+              : 'col-span-1 lg:col-span-3';
+        
+        return (
+          <DashboardWidget
+            key={id}
+            id={id}
+            title="Stok Giriş / Çıkış Hareketi Trendi"
+            icon={<Calendar className="w-4 h-4" />}
+            size={isKpiZone ? undefined : currentSize}
+            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('trend', size)}
+            className={sizeClass}
+            onRemove={() => handleRemoveWidget(id)}
+          >
+            <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+              <MovementTrendChart data={trendQuery.data} />
+            </div>
+          </DashboardWidget>
+        );
+      }
+      case 'category': {
+        const currentSize = isKpiZone ? 'small' : (widgetSizes.category || 'small');
+        const sizeClass = isKpiZone 
+          ? 'col-span-1' 
+          : currentSize === 'small' 
+            ? 'col-span-1' 
+            : currentSize === 'medium' 
+              ? 'col-span-1 lg:col-span-2' 
+              : 'col-span-1 lg:col-span-3';
+        
+        return (
+          <DashboardWidget
+            key={id}
+            id={id}
+            title="Kategori Dağılımı"
+            icon={<Layers className="w-4 h-4" />}
+            size={isKpiZone ? undefined : currentSize}
+            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('category', size)}
+            className={sizeClass}
+            onRemove={() => handleRemoveWidget(id)}
+          >
+            <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+              <CategoryDistributionChart data={categoryQuery.data} />
+            </div>
+          </DashboardWidget>
+        );
+      }
+      case 'top-products': {
+        const currentSize = isKpiZone ? 'small' : (widgetSizes['top-products'] || 'medium');
+        const sizeClass = isKpiZone 
+          ? 'col-span-1' 
+          : currentSize === 'small' 
+            ? 'col-span-1' 
+            : currentSize === 'medium' 
+              ? 'col-span-1 lg:col-span-2' 
+              : 'col-span-1 lg:col-span-3';
+        
+        return (
+          <DashboardWidget
+            key={id}
+            id={id}
+            title="En Aktif Ürünler (Son Stok Hareket Sayıları)"
+            icon={<BarChart3 className="w-4 h-4" />}
+            size={isKpiZone ? undefined : currentSize}
+            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('top-products', size)}
+            className={sizeClass}
+            onRemove={() => handleRemoveWidget(id)}
+          >
+            <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+              <TopProductsChart data={topProductsQuery.data} />
+            </div>
+          </DashboardWidget>
+        );
+      }
+      case 'occupancy': {
+        const currentSize = isKpiZone ? 'small' : (widgetSizes.occupancy || 'small');
+        const sizeClass = isKpiZone 
+          ? 'col-span-1' 
+          : currentSize === 'small' 
+            ? 'col-span-1' 
+            : currentSize === 'medium' 
+              ? 'col-span-1 lg:col-span-2' 
+              : 'col-span-1 lg:col-span-3';
+        
+        return (
+          <DashboardWidget
+            key={id}
+            id={id}
+            title="En Dolu Lokasyonlar (%)"
+            icon={<MapPin className="w-4 h-4" />}
+            size={isKpiZone ? undefined : currentSize}
+            onSizeChange={isKpiZone ? undefined : (size) => handleSizeChange('occupancy', size)}
+            className={sizeClass}
+            onRemove={() => handleRemoveWidget(id)}
+          >
+            <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
+              <LocationOccupancyChart data={occupancyQuery.data} />
+            </div>
+          </DashboardWidget>
+        );
+      }
+      default:
+        return null;
+    }
   };
 
   return (
@@ -409,7 +649,7 @@ export default function DashboardPage() {
       {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-550">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
             Hoş Geldiniz, {session?.user?.name || 'Kullanıcı'}
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -438,7 +678,7 @@ export default function DashboardPage() {
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-250 transition-all active:scale-95"
+            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all active:scale-95"
             title="Yenile"
           >
             <RefreshCw className="w-4 h-4" />
@@ -447,7 +687,7 @@ export default function DashboardPage() {
           {/* Settings Button */}
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-250 transition-all active:scale-95"
+            className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all active:scale-95"
             title="Panel Ayarları"
           >
             <Settings className="w-4 h-4" />
@@ -468,186 +708,75 @@ export default function DashboardPage() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {widgetOrder.map((id) => {
-              if (!widgetVisibility[id]) return null;
-
-              switch (id) {
-                case 'kpi':
-                  return (
-                    <DashboardWidget
-                      key={id}
-                      id={id}
-                      title="Temel Göstergeler (KPI)"
-                      icon={<TrendingUp className="w-4 h-4" />}
-                      className="col-span-1 lg:col-span-3"
-                    >
-                      {/* KPI Cards Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {kpis.map((kpi) => {
-                          const Icon = kpi.icon;
-                          const colors = colorStyles[kpi.color as keyof typeof colorStyles];
-
-                          return (
-                            <div
-                              key={kpi.title}
-                              className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                                  {kpi.title}
-                                </span>
-                                <div className={`p-2.5 rounded-xl border ${colors}`}>
-                                  <Icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                </div>
-                              </div>
-
-                              <div className="mt-4 space-y-1">
-                                <span className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
-                                  {kpi.value}
-                                </span>
-                                <p className="text-[11px] text-zinc-450 dark:text-zinc-500">{kpi.desc}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </DashboardWidget>
-                  );
-                case 'trend': {
-                  const currentSize = widgetSizes.trend || 'medium';
-                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
-                  return (
-                    <DashboardWidget
-                      key={id}
-                      id={id}
-                      title="Stok Giriş / Çıkış Hareketi Trendi"
-                      icon={<Calendar className="w-4 h-4" />}
-                      size={currentSize}
-                      onSizeChange={(size) => handleSizeChange('trend', size)}
-                      className={sizeClass}
-                    >
-                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-                        <MovementTrendChart data={trendQuery.data} />
-                      </div>
-                    </DashboardWidget>
-                  );
-                }
-                case 'category': {
-                  const currentSize = widgetSizes.category || 'small';
-                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
-                  return (
-                    <DashboardWidget
-                      key={id}
-                      id={id}
-                      title="Kategori Dağılımı"
-                      icon={<Layers className="w-4 h-4" />}
-                      size={currentSize}
-                      onSizeChange={(size) => handleSizeChange('category', size)}
-                      className={sizeClass}
-                    >
-                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-                        <CategoryDistributionChart data={categoryQuery.data} />
-                      </div>
-                    </DashboardWidget>
-                  );
-                }
-                case 'top-products': {
-                  const currentSize = widgetSizes['top-products'] || 'medium';
-                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
-                  return (
-                    <DashboardWidget
-                      key={id}
-                      id={id}
-                      title="En Aktif Ürünler (Son Stok Hareket Sayıları)"
-                      icon={<BarChart3 className="w-4 h-4" />}
-                      size={currentSize}
-                      onSizeChange={(size) => handleSizeChange('top-products', size)}
-                      className={sizeClass}
-                    >
-                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-                        <TopProductsChart data={topProductsQuery.data} />
-                      </div>
-                    </DashboardWidget>
-                  );
-                }
-                case 'occupancy': {
-                  const currentSize = widgetSizes.occupancy || 'small';
-                  const sizeClass = currentSize === 'small' ? 'col-span-1' : currentSize === 'medium' ? 'col-span-1 lg:col-span-2' : 'col-span-1 lg:col-span-3';
-                  return (
-                    <DashboardWidget
-                      key={id}
-                      id={id}
-                      title="En Dolu Lokasyonlar (%)"
-                      icon={<MapPin className="w-4 h-4" />}
-                      size={currentSize}
-                      onSizeChange={(size) => handleSizeChange('occupancy', size)}
-                      className={sizeClass}
-                    >
-                      <div className="w-full text-xs min-h-[300px]" style={{ minHeight: 300, width: '100%' }}>
-                        <LocationOccupancyChart data={occupancyQuery.data} />
-                      </div>
-                    </DashboardWidget>
-                  );
-                }
-                default: {
-                  if (id.startsWith('metric-')) {
-                    const definition = METRIC_DEFINITIONS[id as keyof typeof METRIC_DEFINITIONS];
-                    if (!definition) return null;
-                    const Icon = definition.icon;
-                    const colors = colorStyles[definition.color as keyof typeof colorStyles];
-                    const rawValue = additionalMetricsQuery.data?.[definition.valueKey as keyof typeof additionalMetricsQuery.data] ?? 0;
-                    
-                    const displayValue = definition.isCurrency 
-                      ? `₺${Number(rawValue).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
-                      : rawValue;
-
-                    return (
-                      <DashboardWidget
-                        key={id}
-                        id={id}
-                        title={definition.title}
-                        icon={<Icon className="w-4 h-4" />}
-                        className="col-span-1"
-                        onRemove={() => handleRemoveWidget(id)}
-                      >
-                        <div className="flex-1 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">
-                              Gösterge
-                            </span>
-                            <div className={`p-2 rounded-lg border ${colors}`}>
-                              <Icon className="w-4.5 h-4.5" />
-                            </div>
-                          </div>
-                          <div className="mt-4 space-y-1">
-                            <span className="text-2xl font-black text-zinc-905 dark:text-zinc-50 tracking-tight">
-                              {displayValue}
-                            </span>
-                            <p className="text-[11px] text-zinc-450 dark:text-zinc-500 leading-normal">{definition.desc}</p>
-                          </div>
-                        </div>
-                      </DashboardWidget>
-                    );
-                  }
-                  return null;
-                }
-              }
-            })}
+        <div className="space-y-8">
+          {/* KPI Section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+              Temel Göstergeler (KPI)
+            </h3>
+            <SortableContext items={kpiWidgets} strategy={rectSortingStrategy}>
+              <DroppableContainer
+                id="kpi"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 min-h-[140px] p-4 rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800/60 bg-zinc-50/10 dark:bg-zinc-900/5 transition-colors"
+              >
+                {kpiWidgets.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-8 text-zinc-400 dark:text-zinc-500">
+                    <p className="text-xs font-semibold">Gösterge Kartı Bulunmuyor</p>
+                    <p className="text-[10px] mt-0.5">Sürükleyip buraya bırakabilir veya yeni widget ekleyebilirsiniz.</p>
+                  </div>
+                ) : (
+                  kpiWidgets.map((id) => renderWidget(id, true))
+                )}
+              </DroppableContainer>
+            </SortableContext>
           </div>
-        </SortableContext>
+
+          {/* Main Widgets Section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+              Grafikler & Analitik Paneller
+            </h3>
+            <SortableContext items={mainWidgets} strategy={rectSortingStrategy}>
+              <DroppableContainer
+                id="widgets"
+                className="grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-[300px] p-4 rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800/60 bg-zinc-50/10 dark:bg-zinc-900/5 transition-colors"
+              >
+                {mainWidgets.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-zinc-400 dark:text-zinc-500">
+                    <p className="text-xs font-semibold">Grafik veya Widget Bulunmuyor</p>
+                    <p className="text-[10px] mt-0.5">Sürükleyip buraya bırakabilir veya yeni widget ekleyebilirsiniz.</p>
+                  </div>
+                ) : (
+                  mainWidgets.map((id) => renderWidget(id, false))
+                )}
+              </DroppableContainer>
+            </SortableContext>
+          </div>
+        </div>
       </DndContext>
 
       {/* Widget Settings side drawer */}
       <WidgetSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        widgetOrder={widgetOrder}
-        widgetVisibility={widgetVisibility}
-        onToggleVisibility={handleToggleVisibility}
+        widgetOrder={['trend', 'category', 'top-products', 'occupancy']}
+        widgetVisibility={{
+          trend: kpiWidgets.includes('trend') || mainWidgets.includes('trend'),
+          category: kpiWidgets.includes('category') || mainWidgets.includes('category'),
+          'top-products': kpiWidgets.includes('top-products') || mainWidgets.includes('top-products'),
+          occupancy: kpiWidgets.includes('occupancy') || mainWidgets.includes('occupancy'),
+        }}
+        onToggleVisibility={(id) => {
+          const isVisible = kpiWidgets.includes(id) || mainWidgets.includes(id);
+          if (isVisible) {
+            handleRemoveWidget(id);
+          } else {
+            handleAddWidget(id);
+          }
+        }}
         onReset={handleResetSettings}
       />
 
@@ -655,9 +784,9 @@ export default function DashboardPage() {
       <AddWidgetModal
         isOpen={isAddWidgetOpen}
         onClose={() => setIsAddWidgetOpen(false)}
-        widgetOrder={widgetOrder}
+        widgetOrder={[...kpiWidgets, ...mainWidgets]}
         onAddWidget={handleAddWidget}
-        additionalMetrics={additionalMetricsQuery.data}
+        additionalMetrics={mergedMetrics}
       />
     </div>
   );

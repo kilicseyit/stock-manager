@@ -14,7 +14,8 @@ import {
   CheckCircle, 
   Coins, 
   AlertTriangle, 
-  Lock 
+  Lock,
+  Package
 } from 'lucide-react';
 
 interface AddWidgetModalProps {
@@ -22,21 +23,46 @@ interface AddWidgetModalProps {
   onClose: () => void;
   widgetOrder: string[];
   onAddWidget: (id: string) => void;
-  additionalMetrics: {
-    totalWarehouses: number;
-    totalLocations: number;
-    activeSuppliers: number;
-    ordersThisMonth: number;
-    stockInThisMonth: number;
-    stockOutThisMonth: number;
-    completedOrders: number;
-    pendingOrdersValue: number;
-    mostOccupiedLocation: string;
-    totalReservedStock: number;
-  } | undefined;
+  additionalMetrics: Record<string, any> | undefined;
 }
 
 const METRIC_POOL = [
+  {
+    id: 'kpi-totalProducts',
+    title: 'Toplam SKU (Ürün)',
+    icon: Package,
+    color: 'indigo',
+    valueKey: 'totalProducts',
+    isCurrency: false,
+    desc: 'Sistemde kayıtlı aktif ürün çeşidi',
+  },
+  {
+    id: 'kpi-totalStockValue',
+    title: 'Toplam Stok Değeri',
+    icon: TrendingUp,
+    color: 'emerald',
+    valueKey: 'totalStockValue',
+    isCurrency: true,
+    desc: 'Mevcut envanterin satın alma değeri',
+  },
+  {
+    id: 'kpi-pendingOrders',
+    title: 'Bekleyen Sipariş',
+    icon: FileText,
+    color: 'amber',
+    valueKey: 'pendingOrders',
+    isCurrency: false,
+    desc: 'Yolda olan veya kısmi kabul edilen siparişler',
+  },
+  {
+    id: 'kpi-criticalStockCount',
+    title: 'Kritik Stok Uyarısı',
+    icon: AlertTriangle,
+    color: 'rose',
+    valueKey: 'criticalStockCount',
+    isCurrency: false,
+    desc: 'Minimum stok seviyesinin altındaki kalemler',
+  },
   {
     id: 'metric-totalWarehouses',
     title: 'Toplam Depo Sayısı',
