@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Warehouse, Info } from 'lucide-react';
 
 interface LocationHeatmapProps {
@@ -14,9 +15,19 @@ interface LocationHeatmapProps {
     _count?: { stockItems: number } | null;
     stockItems?: Array<{ quantity: number }> | null;
   }>;
+  mode?: 'heatmap' | 'visual';
 }
 
-export default function LocationHeatmap({ locations }: LocationHeatmapProps) {
+export default function LocationHeatmap({ locations, mode = 'heatmap' }: LocationHeatmapProps) {
+  const [activeTooltip, setActiveTooltip] = useState<{
+    x: number;
+    y: number;
+    locName: string;
+    stockItemsCount: number;
+    totalQty: number;
+    rate: number;
+  } | null>(null);
+
   const warehousesData = useMemo(() => {
     const groups: Record<string, typeof locations> = {};
     locations.forEach((loc) => {
@@ -52,26 +63,45 @@ export default function LocationHeatmap({ locations }: LocationHeatmapProps) {
           <Info className="w-3.5 h-3.5 text-indigo-500" />
           RENK SKALASI (DOLULUK):
         </span>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded border bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700" />
-          <span className="text-zinc-650 dark:text-zinc-400">%0 (Boş)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded border bg-emerald-500/10 dark:bg-emerald-950/20 border-emerald-500/20 dark:border-emerald-900/30" />
-          <span className="text-zinc-650 dark:text-zinc-400">%1-30</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded border bg-amber-500/10 dark:bg-amber-950/20 border-amber-500/20 dark:border-amber-900/30" />
-          <span className="text-zinc-650 dark:text-zinc-400">%31-70</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded border bg-orange-500/10 dark:bg-orange-950/20 border-orange-500/20 dark:border-orange-900/30" />
-          <span className="text-zinc-650 dark:text-zinc-400">%71-99</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded border bg-red-500/10 dark:bg-red-950/20 border-red-500/20 dark:border-red-900/30" />
-          <span className="text-zinc-650 dark:text-zinc-400">%100 (Dolu)</span>
-        </div>
+        {mode === 'visual' ? (
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border bg-zinc-150 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700" />
+              <span className="text-zinc-650 dark:text-zinc-400">%0 (Boş)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-32 rounded-full border border-zinc-200 dark:border-zinc-700 bg-gradient-to-r from-emerald-500 via-amber-500 via-orange-500 to-rose-500 opacity-80" />
+              <div className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                <span>%1 (Yeşil)</span>
+                <span>→</span>
+                <span>%100 (Kırmızı)</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700" />
+              <span className="text-zinc-650 dark:text-zinc-400">%0 (Boş)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border bg-emerald-500/10 dark:bg-emerald-950/20 border-emerald-500/20 dark:border-emerald-900/30" />
+              <span className="text-zinc-650 dark:text-zinc-400">%1-30</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border bg-amber-500/10 dark:bg-amber-950/20 border-amber-500/20 dark:border-amber-900/30" />
+              <span className="text-zinc-650 dark:text-zinc-400">%31-70</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border bg-orange-500/10 dark:bg-orange-950/20 border-orange-500/20 dark:border-orange-900/30" />
+              <span className="text-zinc-650 dark:text-zinc-400">%71-99</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border bg-red-500/10 dark:bg-red-950/20 border-red-500/20 dark:border-red-900/30" />
+              <span className="text-zinc-650 dark:text-zinc-400">%100 (Dolu)</span>
+            </div>
+          </>
+        )}
       </div>
 
       {Object.entries(warehousesData).map(([whName, whLocs]) => {
@@ -93,7 +123,7 @@ export default function LocationHeatmap({ locations }: LocationHeatmapProps) {
             <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
               <Warehouse className="w-5 h-5 text-indigo-500" />
               <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-base">
-                {whName} Depo Isı Haritası
+                {whName} Depo {mode === 'visual' ? 'Görsel Haritası' : 'Isı Haritası'}
               </h3>
             </div>
 
@@ -108,7 +138,9 @@ export default function LocationHeatmap({ locations }: LocationHeatmapProps) {
                     {shelves.map((sh) => (
                       <th 
                         key={sh} 
-                        className="p-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 min-w-[80px]"
+                        className={`p-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 ${
+                          mode === 'visual' ? 'min-w-[100px]' : 'min-w-[80px]'
+                        }`}
                       >
                         Raf {sh}
                       </th>
@@ -141,26 +173,56 @@ export default function LocationHeatmap({ locations }: LocationHeatmapProps) {
                                   const colorClass = getColorClass(rate, totalQty);
                                   const locName = `${loc.zone}-${loc.aisle || 'x'}-${loc.shelf || 'x'}-${loc.bin || 'x'}`;
 
+                                  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setActiveTooltip({
+                                      x: rect.left + rect.width / 2,
+                                      y: rect.top,
+                                      locName,
+                                      stockItemsCount: loc._count?.stockItems || 0,
+                                      totalQty,
+                                      rate,
+                                    });
+                                  };
+
+                                  const handleMouseLeave = () => {
+                                    setActiveTooltip(null);
+                                  };
+
+                                  if (mode === 'visual') {
+                                    const hue = Math.max(0, Math.min(120, ((100 - rate) * 120) / 100));
+                                    const visualStyle = totalQty === 0 ? {} : {
+                                      background: `linear-gradient(135deg, hsla(${hue}, 85%, 50%, 0.15) 0%, hsla(${hue}, 85%, 50%, 0.03) 100%)`,
+                                      borderColor: `hsla(${hue}, 85%, 50%, 0.35)`,
+                                      '--cell-color-light': `hsl(${hue}, 85%, 36%)`,
+                                      '--cell-color-dark': `hsl(${hue}, 85%, 65%)`,
+                                    } as React.CSSProperties;
+
+                                    return (
+                                      <div
+                                        key={loc.id}
+                                        onMouseEnter={handleMouseEnter}
+                                        onMouseLeave={handleMouseLeave}
+                                        style={visualStyle}
+                                        className={`group relative w-20 h-20 rounded-2xl flex items-center justify-center text-[11px] font-extrabold font-mono tracking-wider transition-all duration-300 border hover:scale-105 shadow-sm cursor-help select-none ${
+                                          totalQty === 0
+                                            ? 'bg-zinc-100/50 dark:bg-zinc-800/10 border-zinc-200/50 dark:border-zinc-700/30 text-zinc-400 dark:text-zinc-650'
+                                            : 'text-[var(--cell-color-light)] dark:text-[var(--cell-color-dark)] shadow-md shadow-zinc-150/5'
+                                        }`}
+                                      >
+                                        {loc.zone}-{loc.shelf || 'x'}
+                                      </div>
+                                    );
+                                  }
+
                                   return (
                                     <div
                                       key={loc.id}
+                                      onMouseEnter={handleMouseEnter}
+                                      onMouseLeave={handleMouseLeave}
                                       className={`group relative w-8 h-8 rounded-lg flex items-center justify-center text-[10px] transition-all cursor-help border hover:scale-110 shadow-sm ${colorClass}`}
                                     >
                                       {rate}%
-                                      
-                                      {/* Custom Tooltip */}
-                                      <div className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 hidden group-hover:block z-50 w-52 p-3.5 rounded-xl bg-zinc-950/95 dark:bg-zinc-900/95 text-white text-xs text-left shadow-2xl border border-zinc-850 dark:border-zinc-800/80 animate-fadeIn pointer-events-none">
-                                        <div className="font-bold text-zinc-100 mb-1.5 flex items-center gap-1.5 border-b border-zinc-800 pb-1">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                          Lokasyon: {locName}
-                                        </div>
-                                        <div className="space-y-1 font-medium text-zinc-300">
-                                          <p>Ürün Sayısı: <span className="font-bold text-white">{loc._count?.stockItems || 0}</span></p>
-                                          <p>Toplam Miktar: <span className="font-bold text-white">{totalQty} adet</span></p>
-                                          <p>Doluluk Oranı: <span className="font-bold text-white">{rate}%</span></p>
-                                        </div>
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-950 dark:border-t-zinc-900" />
-                                      </div>
                                     </div>
                                   );
                                 })
@@ -177,6 +239,32 @@ export default function LocationHeatmap({ locations }: LocationHeatmapProps) {
           </div>
         );
       })}
+
+      {/* Portal Tooltip */}
+      {activeTooltip && typeof document !== 'undefined' && createPortal(
+        <div 
+          style={{
+            position: 'fixed',
+            left: `${activeTooltip.x}px`,
+            top: `${activeTooltip.y}px`,
+            transform: 'translate(-50%, -100%) translateY(-10px)',
+          }}
+          className="z-[9999] w-52 p-3.5 rounded-xl bg-zinc-950/95 dark:bg-zinc-900/95 text-white text-xs text-left shadow-2xl border border-zinc-850 dark:border-zinc-800/80 animate-fadeIn pointer-events-none"
+        >
+          <div className="font-bold text-zinc-100 mb-1.5 flex items-center gap-1.5 border-b border-zinc-850 dark:border-zinc-800 pb-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            Lokasyon: {activeTooltip.locName}
+          </div>
+          <div className="space-y-1 font-medium text-zinc-300">
+            <p>Ürün Sayısı: <span className="font-bold text-white">{activeTooltip.stockItemsCount}</span></p>
+            <p>Toplam Miktar: <span className="font-bold text-white">{activeTooltip.totalQty} adet</span></p>
+            <p>Doluluk Oranı: <span className="font-bold text-white">{activeTooltip.rate}%</span></p>
+          </div>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-950 dark:border-t-zinc-900" />
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
+

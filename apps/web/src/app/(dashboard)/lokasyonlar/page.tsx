@@ -24,7 +24,7 @@ export default function LokasyonlarPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'heatmap' | 'visual'>('list');
 
   const utils = trpc.useUtils();
 
@@ -150,6 +150,17 @@ export default function LokasyonlarPage() {
               <LayoutGrid className="w-3.5 h-3.5" />
               Isı Haritası
             </button>
+            <button
+              onClick={() => setViewMode('visual')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                viewMode === 'visual'
+                  ? 'bg-white dark:bg-zinc-700 shadow-sm text-indigo-650 dark:text-indigo-450 font-bold'
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              }`}
+            >
+              <Warehouse className="w-3.5 h-3.5" />
+              Görsel Harita
+            </button>
           </div>
 
           <button
@@ -174,14 +185,14 @@ export default function LokasyonlarPage() {
         </div>
       )}
 
-      {viewMode === 'heatmap' ? (
+      {viewMode !== 'list' ? (
         locationsQuery.isLoading ? (
           <div className="p-8 bg-white dark:bg-zinc-900/80 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
             <div className="h-12 w-64 bg-zinc-100 dark:bg-zinc-800/50 animate-pulse rounded-lg" />
             <div className="h-64 bg-zinc-100 dark:bg-zinc-800/50 animate-pulse rounded-2xl" />
           </div>
         ) : (
-          <LocationHeatmap locations={locationsQuery.data || []} />
+          <LocationHeatmap locations={locationsQuery.data || []} mode={viewMode} />
         )
       ) : (
         <div className="bg-white dark:bg-zinc-900/80 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
