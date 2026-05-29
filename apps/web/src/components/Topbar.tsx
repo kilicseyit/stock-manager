@@ -60,15 +60,6 @@ export default function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-md flex items-center justify-between px-6 lg:px-8 transition-colors duration-300">
-      {/* Sidebar Collapse Toggle */}
-      <button
-        onClick={toggleCollapsed}
-        className="hidden lg:flex items-center justify-center p-2 rounded-xl text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors mr-4 cursor-pointer"
-        title="Menüyü Aç/Kapat"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
-
       {/* Global Search Input */}
       <div className="flex-1 max-w-md hidden md:block" ref={containerRef}>
         <div className="relative">

@@ -83,17 +83,27 @@ export default function Sidebar({ user }: SidebarProps) {
       >
         <div className="flex flex-col flex-1 pt-6 overflow-y-auto overflow-x-hidden min-h-0">
           {/* Logo / Header */}
-          <div className={`mb-8 flex items-center gap-2.5 transition-all duration-300 ${isCollapsed ? 'px-4 justify-center' : 'px-6'}`}>
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-600/30 shrink-0">
-              S
+          <div className={`mb-8 flex items-center justify-between transition-all duration-300 ${isCollapsed ? 'flex-col gap-3 px-4 justify-center' : 'px-6'}`}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-600/30 shrink-0">
+                S
+              </div>
+              <span
+                className={`font-bold text-xl bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 bg-clip-text text-transparent whitespace-nowrap transition-all duration-300 overflow-hidden ${
+                  isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'
+                }`}
+              >
+                StockManager
+              </span>
             </div>
-            <span
-              className={`font-bold text-xl bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 bg-clip-text text-transparent whitespace-nowrap transition-all duration-300 overflow-hidden ${
-                isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              }`}
+
+            <button
+              onClick={toggleCollapsed}
+              className="hidden lg:flex items-center justify-center p-1.5 rounded-lg text-zinc-500 hover:text-zinc-850 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer shrink-0"
+              title={isCollapsed ? 'Genişlet' : 'Daralt'}
             >
-              StockManager
-            </span>
+              <Menu className="w-4.5 h-4.5" />
+            </button>
           </div>
 
           {/* Navigation Menu */}

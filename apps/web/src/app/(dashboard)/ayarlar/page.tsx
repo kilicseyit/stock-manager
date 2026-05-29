@@ -163,8 +163,8 @@ export default function AyarlarPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-550 flex items-center gap-2.5">
-          <Settings className="w-8 h-8 text-indigo-650" />
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2.5">
+          <Settings className="w-8 h-8 text-indigo-600" />
           Sistem Ayarları
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -214,7 +214,7 @@ export default function AyarlarPage() {
         {/* PROFILE TAB */}
         {activeTab === 'profile' && (
           <div className="max-w-xl p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-6">
-            <h2 className="text-lg font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
               <User className="w-5 h-5 text-indigo-500" /> Profil Bilgilerini Güncelle
             </h2>
 
@@ -296,7 +296,7 @@ export default function AyarlarPage() {
         {activeTab === 'warehouse' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
                 <Warehouse className="w-5 h-5 text-indigo-500" /> Depo Listesi ve Yönetimi
               </h2>
               <button
@@ -372,7 +372,7 @@ export default function AyarlarPage() {
         {activeTab === 'system' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
-              <h3 className="font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-2">
+              <h3 className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-indigo-500" /> Yazılım ve Ortam Özellikleri
               </h3>
 
@@ -397,11 +397,11 @@ export default function AyarlarPage() {
             </div>
 
             <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-xl shadow-sm space-y-4">
-              <h3 className="font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-2">
+              <h3 className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
                 <Warehouse className="w-5 h-5 text-indigo-500" /> Envanter Veritabanı ve Redis
               </h3>
 
-              <div className="space-y-3 text-xs text-zinc-650 dark:text-zinc-400">
+              <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-400">
                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
                   <span>Veritabanı Sağlayıcısı</span>
                   <span className="font-semibold text-zinc-900 dark:text-zinc-50">PostgreSQL (pg)</span>

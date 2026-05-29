@@ -24,7 +24,7 @@ export default function RaporlarPage() {
   // Stok Hareket Raporu Filtreleri
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [movementType, setMovementType] = useState<string>('');
+  const [movementType, setMovementType] = useState<string>('all');
 
   const utils = trpc.useUtils();
 
@@ -41,7 +41,7 @@ export default function RaporlarPage() {
     {
       startDate: startDate || null,
       endDate: endDate || null,
-      type: (movementType as any) || null,
+      type: movementType === 'all' || !movementType ? null : (movementType as any),
     },
     {
       enabled: activeTab === 'movement',
@@ -67,7 +67,7 @@ export default function RaporlarPage() {
         utils.client.analytics.getStockMovementReport.query({
           startDate: startDate || null,
           endDate: endDate || null,
-          type: (movementType as any) || null,
+          type: movementType === 'all' || !movementType ? null : (movementType as any),
         }),
         utils.client.analytics.getSupplierPerformanceReport.query(),
       ]);
@@ -244,75 +244,103 @@ export default function RaporlarPage() {
   };
 
   // PDF Export
-  const handleExportPDF = () => {
-    if (activeTab === 'stock' && stockReportQuery.data) {
-      const headers = [['Ürün Adı', 'SKU', 'Kategori', 'Mevcut Stok', 'Birim', 'Min Stok', 'Max Stok']];
-      const rows = stockReportQuery.data.map((r) => [
-        r.name,
-        r.sku,
-        r.categoryName,
-        r.currentStock,
-        r.unit,
-        r.minStock,
-        r.maxStock || '—',
-      ]);
-      generatePDF('Stok Durum Raporu', headers, rows);
-    } else if (activeTab === 'movement' && movementReportQuery.data) {
-      const headers = [
-        ['Tarih', 'Tür', 'Ürün Adı', 'SKU', 'Miktar', 'Kaynak', 'Hedef', 'Kullanıcı', 'Açıklama'],
-      ];
-      const rows = movementReportQuery.data.map((r) => [
-        new Date(r.createdAt).toLocaleDateString('tr-TR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        r.type,
-        r.productName,
-        r.productSku,
-        r.quantity,
-        r.fromLocation,
-        r.toLocation,
-        r.userName,
-        r.reason,
-      ]);
-      generatePDF('Stok Hareket Raporu', headers, rows);
-    } else if (activeTab === 'supplier' && supplierReportQuery.data) {
-      const headers = [
-        [
-          'Tedarikçi Adı',
-          'İletişim Kişisi',
-          'E-posta',
-          'Telefon',
-          'Puan',
-          'Sipariş',
-          'Teslim (%)',
-          'Toplam Harcama',
-        ],
-      ];
-      const rows = supplierReportQuery.data.map((r) => [
-        r.name,
-        r.contactName,
-        r.email,
-        r.phone,
-        `${r.rating}★`,
-        r.totalOrders,
-        `%${r.fulfillmentRate}`,
-        `₺${r.totalSpent.toLocaleString('tr-TR')}`,
-      ]);
-      generatePDF('Tedarikçi Performans Raporu', headers, rows);
+  const handleExportPDF = async () => {
+    try {
+      if (activeTab === 'stock' && stockReportQuery.data) {
+        const headers = [['Ürün Adı', 'SKU', 'Kategori', 'Mevcut Stok', 'Birim', 'Min Stok', 'Max Stok']];
+        const rows = stockReportQuery.data.map((r) => [
+          r.name,
+          r.sku,
+          r.categoryName,
+          r.currentStock,
+          r.unit,
+          r.minStock,
+          r.maxStock || '—',
+        ]);
+        await generatePDF('Stok Durum Raporu', headers, rows);
+      } else if (activeTab === 'movement' && movementReportQuery.data) {
+        const headers = [
+          ['Tarih', 'Tür', 'Ürün Adı', 'SKU', 'Miktar', 'Kaynak', 'Hedef', 'Kullanıcı', 'Açıklama'],
+        ];
+        const rows = movementReportQuery.data.map((r) => [
+          new Date(r.createdAt).toLocaleDateString('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          r.type,
+          r.productName,
+          r.productSku,
+          r.quantity,
+          r.fromLocation,
+          r.toLocation,
+          r.userName,
+          r.reason,
+        ]);
+        await generatePDF('Stok Hareket Raporu', headers, rows);
+      } else if (activeTab === 'supplier' && supplierReportQuery.data) {
+        const headers = [
+          [
+            'Tedarikçi Adı',
+            'İletişim Kişisi',
+            'E-posta',
+            'Telefon',
+            'Puan',
+            'Sipariş',
+            'Teslim (%)',
+            'Toplam Harcama',
+          ],
+        ];
+        const rows = supplierReportQuery.data.map((r) => [
+          r.name,
+          r.contactName,
+          r.email,
+          r.phone,
+          `${r.rating}★`,
+          r.totalOrders,
+          `%${r.fulfillmentRate}`,
+          `₺${r.totalSpent.toLocaleString('tr-TR')}`,
+        ]);
+        await generatePDF('Tedarikçi Performans Raporu', headers, rows);
+      }
+    } catch (err) {
+      console.error('PDF export hatası:', err);
     }
   };
 
-  const generatePDF = (title: string, head: string[][], body: any[][]) => {
-    const doc = new jsPDF();
-    doc.setFont('Helvetica', 'bold');
+  const generatePDF = async (title: string, head: string[][], body: any[][]) => {
+    const doc = new jsPDF({
+      putOnlyUsedFonts: true,
+      floatPrecision: 16
+    });
+
+    let fontRegistered = false;
+    try {
+      // Fetch Roboto Regular font from public CDN for Unicode / Turkish character support
+      const fontUrl = 'https://cdn.jsdelivr.net/npm/roboto-fontface@0.10.0/fonts/roboto/Roboto-Regular.ttf';
+      const response = await fetch(fontUrl);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const binary = new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '');
+        const base64 = btoa(binary);
+        doc.addFileToVFS('Roboto-Regular.ttf', base64);
+        doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+        doc.setFont('Roboto', 'normal');
+        fontRegistered = true;
+      }
+    } catch (e) {
+      console.warn('Could not load Unicode font, falling back to standard font.', e);
+    }
+
+    if (!fontRegistered) {
+      doc.setFont('Helvetica', 'normal');
+    }
+
     doc.setFontSize(16);
     doc.text(title, 14, 15);
     doc.setFontSize(9);
-    doc.setFont('Helvetica', 'normal');
     doc.text(`Tarih: ${new Date().toLocaleString('tr-TR')}`, 14, 22);
 
     autoTable(doc, {
@@ -320,7 +348,7 @@ export default function RaporlarPage() {
       head,
       body,
       theme: 'striped',
-      styles: { fontSize: 7.5, font: 'Helvetica' },
+      styles: { fontSize: 7.5, font: fontRegistered ? 'Roboto' : 'Helvetica' },
       headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
     });
 
@@ -425,7 +453,7 @@ export default function RaporlarPage() {
               onChange={(e) => setMovementType(e.target.value)}
               className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-800 text-xs rounded-lg focus:outline-none"
             >
-              <option value="">Tümü</option>
+              <option value="all">Tümü</option>
               <option value="IN">Giriş (IN)</option>
               <option value="OUT">Çıkış (OUT)</option>
               <option value="TRANSFER">Transfer</option>
@@ -437,7 +465,7 @@ export default function RaporlarPage() {
               onClick={() => {
                 setStartDate('');
                 setEndDate('');
-                setMovementType('');
+                setMovementType('all');
               }}
               className="w-full py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-600 dark:text-zinc-350 text-xs font-semibold rounded-lg transition-colors"
             >
@@ -641,7 +669,7 @@ export default function RaporlarPage() {
               <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">Henüz içe aktarma işlemi gerçekleştirilmemiş.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[200px]">
               <table className="w-full text-sm text-left">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20 text-zinc-600 dark:text-zinc-400 font-medium text-xs">
