@@ -81,15 +81,15 @@ export default function Sidebar({ user }: SidebarProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`fixed inset-y-0 left-0 z-40 flex flex-col justify-between border-r border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl transition-all duration-300 ease-in-out
-          ${isExpanded ? 'w-64' : 'w-16'}
+          ${isExpanded ? 'w-64' : 'w-20'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
         `}
       >
         <div className="flex flex-col flex-1 pt-6 overflow-y-auto overflow-x-hidden min-h-0">
           {/* Logo / Header */}
-          <div className={`mb-8 flex items-center transition-all duration-300 ${isExpanded ? 'justify-between px-6' : 'justify-start gap-2.5 px-3'}`}>
-            <div className="flex items-center gap-2.5 shrink-0">
+          <div className={`mb-8 flex items-center transition-all duration-300 ${isExpanded ? 'justify-between px-6' : 'justify-center gap-2 px-3'}`}>
+            <div className="flex items-center gap-2 shrink-0">
               <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-600/30 shrink-0">
                 S
               </div>
@@ -104,7 +104,7 @@ export default function Sidebar({ user }: SidebarProps) {
 
             <button
               onClick={toggleCollapsed}
-              className="hidden lg:flex items-center justify-center p-1.5 rounded-lg text-zinc-500 hover:text-zinc-850 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer shrink-0"
+              className="hidden lg:flex items-center justify-center p-1.5 rounded-lg text-zinc-500 hover:text-zinc-855 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer shrink-0 z-50"
               title={isCollapsed ? 'Genişlet' : 'Daralt'}
             >
               <Menu className="w-4.5 h-4.5" />
@@ -112,7 +112,7 @@ export default function Sidebar({ user }: SidebarProps) {
           </div>
 
           {/* Navigation Menu */}
-          <nav className={`flex-1 space-y-1 transition-all duration-300 ${isExpanded ? 'px-4' : 'px-2'}`}>
+          <nav className={`flex-1 space-y-1 transition-all duration-300 ${isExpanded ? 'px-4' : 'px-3'}`}>
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
@@ -123,7 +123,7 @@ export default function Sidebar({ user }: SidebarProps) {
                   onClick={() => setIsMobileOpen(false)}
                   title={!isExpanded ? item.name : undefined}
                   className={`flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all group
-                    ${isExpanded ? 'px-4 justify-start' : 'px-2 justify-center'}
+                    ${isExpanded ? 'px-4 justify-start' : 'px-3 justify-center'}
                     ${
                       isActive
                         ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
