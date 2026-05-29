@@ -36,6 +36,9 @@ export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { isCollapsed, toggleCollapsed } = useSidebar();
+  const [isHovered, setIsHovered] = useState(false);
+
+  const isExpanded = !isCollapsed || isHovered;
 
   const menuItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -75,22 +78,24 @@ export default function Sidebar({ user }: SidebarProps) {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col justify-between border-r border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl transition-all duration-300
-          ${isCollapsed ? 'w-16' : 'w-64'}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col justify-between border-r border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/60 backdrop-blur-xl transition-all duration-300 ease-in-out
+          ${isExpanded ? 'w-64' : 'w-16'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
         `}
       >
         <div className="flex flex-col flex-1 pt-6 overflow-y-auto overflow-x-hidden min-h-0">
           {/* Logo / Header */}
-          <div className={`mb-8 flex items-center justify-between transition-all duration-300 ${isCollapsed ? 'flex-col gap-3 px-4 justify-center' : 'px-6'}`}>
-            <div className="flex items-center gap-2.5">
+          <div className={`mb-8 flex items-center transition-all duration-300 ${isExpanded ? 'justify-between px-6' : 'justify-start gap-2.5 px-3'}`}>
+            <div className="flex items-center gap-2.5 shrink-0">
               <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-600/30 shrink-0">
                 S
               </div>
               <span
                 className={`font-bold text-xl bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 bg-clip-text text-transparent whitespace-nowrap transition-all duration-300 overflow-hidden ${
-                  isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'
+                  isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0 hidden'
                 }`}
               >
                 StockManager
@@ -107,7 +112,7 @@ export default function Sidebar({ user }: SidebarProps) {
           </div>
 
           {/* Navigation Menu */}
-          <nav className={`flex-1 space-y-1 transition-all duration-300 ${isCollapsed ? 'px-2' : 'px-4'}`}>
+          <nav className={`flex-1 space-y-1 transition-all duration-300 ${isExpanded ? 'px-4' : 'px-2'}`}>
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
@@ -116,9 +121,9 @@ export default function Sidebar({ user }: SidebarProps) {
                   key={item.name}
                   href={item.href}
                   onClick={() => setIsMobileOpen(false)}
-                  title={isCollapsed ? item.name : undefined}
+                  title={!isExpanded ? item.name : undefined}
                   className={`flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all group
-                    ${isCollapsed ? 'px-2 justify-center' : 'px-4'}
+                    ${isExpanded ? 'px-4 justify-start' : 'px-2 justify-center'}
                     ${
                       isActive
                         ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
@@ -132,7 +137,7 @@ export default function Sidebar({ user }: SidebarProps) {
                   />
                   <span
                     className={`flex-1 whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                      isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+                      isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0 hidden'
                     }`}
                   >
                     {item.name}
@@ -144,9 +149,9 @@ export default function Sidebar({ user }: SidebarProps) {
         </div>
 
         {/* Footer / User Profile & Logout */}
-        <div className={`border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-3 transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+        <div className={`border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-3 transition-all duration-300 ${isExpanded ? 'p-4' : 'p-2'}`}>
           {/* User Card */}
-          {user && !isCollapsed && (
+          {user && isExpanded && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-100 dark:border-zinc-800/40">
               <div className="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 shrink-0">
                 <User className="w-5 h-5" />
@@ -166,7 +171,7 @@ export default function Sidebar({ user }: SidebarProps) {
           )}
 
           {/* User icon when collapsed */}
-          {user && isCollapsed && (
+          {user && !isExpanded && (
             <div
               className="flex items-center justify-center p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-100 dark:border-zinc-800/40"
               title={user.name || 'Kullanıcı'}
@@ -178,15 +183,15 @@ export default function Sidebar({ user }: SidebarProps) {
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            title={isCollapsed ? 'Çıkış Yap' : undefined}
+            title={!isExpanded ? 'Çıkış Yap' : undefined}
             className={`flex items-center w-full py-2.5 rounded-xl border border-red-200/50 dark:border-red-900/20 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-50 dark:hover:bg-red-950/20 transition-all active:scale-[0.98]
-              ${isCollapsed ? 'justify-center px-2' : 'justify-center gap-2 px-4'}
+              ${isExpanded ? 'justify-center gap-2 px-4' : 'justify-center px-2'}
             `}
           >
             <LogOut className="w-4 h-4 shrink-0" />
             <span
               className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+                isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0 hidden'
               }`}
             >
               Çıkış Yap

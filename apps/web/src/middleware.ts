@@ -26,9 +26,9 @@ export function middleware(req: NextRequest) {
     if (rateData.count > limit) {
       const retryAfter = Math.ceil((rateData.resetTime - now) / 1000);
       return new NextResponse(
-        JSON.stringify({ 
-          error: 'Too Many Requests', 
-          message: 'Çok fazla istek gönderdiniz. Lütfen daha sonra tekrar deneyin.' 
+        JSON.stringify({
+          error: 'Too Many Requests',
+          message: 'Çok fazla istek gönderdiniz. Lütfen daha sonra tekrar deneyin.'
         }),
         {
           status: 429,
@@ -42,7 +42,7 @@ export function middleware(req: NextRequest) {
   }
 
   // Check for both NextAuth v4 and v5 session cookies (for HTTP and HTTPS)
-  const sessionToken = 
+  const sessionToken =
     req.cookies.get('authjs.session-token')?.value ||
     req.cookies.get('__Secure-authjs.session-token')?.value ||
     req.cookies.get('next-auth.session-token')?.value ||
@@ -51,6 +51,9 @@ export function middleware(req: NextRequest) {
   const isLoggedIn = !!sessionToken;
   const isOnDashboard = pathname.startsWith('/dashboard');
   const isOnLogin = pathname === '/login';
+  if (pathname.startsWith('/api/auth')) {
+    return NextResponse.next();
+  }
 
   if (isOnDashboard && !isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.nextUrl));
