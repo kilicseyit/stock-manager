@@ -484,4 +484,152 @@ export const inventoryRouter = router({
 
       return { results, successCount, errorCount };
     }),
+
+  /** Kritik stoktaki ürünler için otomatik satın alma siparişi oluşturma */
+  autoReorder: publicProcedure
+    .mutation(async () => {
+      // 1. Min stok altındaki tüm ürünleri ve mevcut stoklarını çek
+      const products = await prisma.product.findMany({
+        where: { minStock: { gt: 0 } },
+        include: {
+          stockItems: { select: { quantity: true } }
+        }
+      });
+
+      const lowStockProducts = products.filter(p => {
+        const totalStock = p.stockItems.reduce((sum, item) => sum + item.quantity, 0);
+        return totalStock <= p.minStock;
+      });
+
+      if (lowStockProducts.length === 0) {
+        return { success: true, count: 0, message: 'Kritik stok seviyesinin altında ürün bulunamadı.' };
+      }
+
+      let draftOrdersCreated = 0;
+      let itemsAdded = 0;
+
+      // Her ürün için son tedarikçiyi bul veya ilk tedarikçiye ata
+      const reorderList: { productId: string; supplierId: string; quantity: number; unitPrice: number }[] = [];
+
+      for (const p of lowStockProducts) {
+        const lastOrderItem = await prisma.purchaseOrderItem.findFirst({
+          where: { productId: p.id, order: { status: 'RECEIVED' } },
+          orderBy: { order: { createdAt: 'desc' } },
+          include: { order: true }
+        });
+
+        let supplierId = lastOrderItem?.order.supplierId;
+        let unitPrice = lastOrderItem?.unitPrice || 15.0; // varsayılan birim fiyat 15 TL
+
+        if (!supplierId) {
+          const firstSupplier = await prisma.supplier.findFirst();
+          if (!firstSupplier) continue;
+          supplierId = firstSupplier.id;
+        }
+
+        const totalStock = p.stockItems.reduce((sum, item) => sum + item.quantity, 0);
+        const reorderQty = Math.max(1, (p.minStock * 2) - totalStock);
+
+        reorderList.push({
+          productId: p.id,
+          supplierId,
+          quantity: reorderQty,
+          unitPrice
+        });
+      }
+
+      if (reorderList.length === 0) {
+        return { success: true, count: 0, message: 'Sipariş edilebilir tedarikçi/ürün bulunamadı.' };
+      }
+
+      // Tedarikçiye göre grupla
+      const bySupplier: Record<string, typeof reorderList> = {};
+      reorderList.forEach(item => {
+        if (!bySupplier[item.supplierId]) {
+          bySupplier[item.supplierId] = [];
+        }
+        bySupplier[item.supplierId].push(item);
+      });
+
+      // DRAFT siparişleri oluştur
+      await prisma.$transaction(async (tx) => {
+        for (const supplierId of Object.keys(bySupplier)) {
+          const items = bySupplier[supplierId];
+          const order = await tx.purchaseOrder.create({
+            data: {
+              supplierId,
+              status: 'DRAFT',
+              isAuto: true,
+              items: {
+                create: items.map(item => ({
+                  productId: item.productId,
+                  orderedQty: item.quantity,
+                  unitPrice: item.unitPrice,
+                  receivedQty: 0
+                }))
+              }
+            }
+          });
+
+          draftOrdersCreated++;
+          itemsAdded += items.length;
+
+          // Yöneticilere bildirim gönder
+          const managers = await tx.user.findMany({
+            where: { role: { in: ['SUPER_ADMIN', 'WAREHOUSE_MANAGER'] } }
+          });
+
+          for (const m of managers) {
+            await tx.notification.create({
+              data: {
+                userId: m.id,
+                type: 'AUTO_REORDER',
+                title: 'Otomatik Sipariş Oluşturuldu',
+                body: `${items.length} adet kritik stoktaki ürün için otomatik DRAFT satın alma siparişi oluşturuldu (Sipariş No: ${order.id}).`,
+                metadata: { orderId: order.id }
+              }
+            });
+          }
+        }
+      });
+
+      return {
+        success: true,
+        count: draftOrdersCreated,
+        itemsAdded,
+        message: `${draftOrdersCreated} adet tedarikçiye toplam ${itemsAdded} adet ürün içeren otomatik taslak sipariş başarıyla oluşturuldu.`
+      };
+    }),
+
+  /** Ürün envanter hareket geçmişi timeline'ı için cursor-based listeleme */
+  getProductHistory: publicProcedure
+    .input(
+      z.object({
+        productId: z.string().min(1),
+        cursor: z.string().optional().nullable(),
+        limit: z.number().int().min(1).max(50).default(10),
+      })
+    )
+    .query(async ({ input }) => {
+      const { productId, cursor, limit } = input;
+      const items = await prisma.stockMovement.findMany({
+        where: { productId },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: {
+          fromLocation: { select: { zone: true, aisle: true, shelf: true, bin: true } },
+          toLocation: { select: { zone: true, aisle: true, shelf: true, bin: true } },
+          user: { select: { name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      let nextCursor: string | undefined;
+      if (items.length > limit) {
+        const nextItem = items.pop();
+        nextCursor = nextItem?.id;
+      }
+
+      return { items, nextCursor };
+    }),
 });

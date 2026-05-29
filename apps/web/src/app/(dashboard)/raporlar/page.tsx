@@ -11,6 +11,7 @@ import {
   Calendar,
   Download,
   Filter,
+  Printer,
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
@@ -490,6 +491,13 @@ export default function RaporlarPage() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-3 py-2 border border-zinc-250 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5 text-indigo-650" />
+            Yazdır
+          </button>
+          <button
             onClick={handleExportMultiSheetExcel}
             className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-700 dark:hover:bg-emerald-800 text-xs font-bold rounded-lg transition-colors shadow-md shadow-emerald-600/10 active:scale-[0.98]"
           >
@@ -729,6 +737,41 @@ export default function RaporlarPage() {
           )}
         </div>
       </div>
+      <style>{`
+        @media print {
+          aside, nav, header, 
+          .flex.border-b, 
+          .grid.grid-cols-1, 
+          button, 
+          .flex.items-center.gap-3, 
+          .pt-6.space-y-4,
+          .space-y-4.pt-6 {
+            display: none !important;
+          }
+          body, main, .max-w-7xl, .max-w-md, div, main > div {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            background: white !important;
+            color: black !important;
+          }
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            margin-top: 20px !important;
+          }
+          th, td {
+            border: 1px solid #ddd !important;
+            padding: 10px !important;
+            color: black !important;
+            background: white !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

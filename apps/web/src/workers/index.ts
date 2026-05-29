@@ -1,15 +1,20 @@
 import 'dotenv/config';
 import { createLowStockWorker } from './lowStockWorker';
-import { scheduleLowStockCheck } from '@/lib/queue';
+import { createWeeklyReportWorker } from './weeklyReportWorker';
+import { scheduleLowStockCheck, scheduleWeeklyReport } from '@/lib/queue';
 
 console.log('[Worker] StockManager worker başlatılıyor...');
 
-// Worker'ı başlat
+// Worker'ları başlat
 createLowStockWorker();
+createWeeklyReportWorker();
 
-// Repeat job'ı planla
-scheduleLowStockCheck().then(() => {
-  console.log('[Worker] Hazır. Ctrl+C ile durdurun.');
+// Repeat job'ları planla
+Promise.all([
+  scheduleLowStockCheck(),
+  scheduleWeeklyReport()
+]).then(() => {
+  console.log('[Worker] Tüm planlanmış işler (jobs) kuyruğa eklendi. Worker\'lar hazır.');
 });
 
 // Graceful shutdown

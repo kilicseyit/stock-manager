@@ -21,6 +21,9 @@ import {
   FolderTree,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
+  Users,
+  Activity,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 
@@ -45,10 +48,13 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'Ürünler', href: '/urunler', icon: Package },
     { name: 'Kategoriler', href: '/kategoriler', icon: FolderTree },
     { name: 'Stok', href: '/stok', icon: Boxes },
+    { name: 'Sayım', href: '/sayim', icon: ClipboardCheck },
     { name: 'Lokasyonlar', href: '/lokasyonlar', icon: MapPin },
     { name: 'Tedarikçiler', href: '/tedarikciler', icon: Truck },
     { name: 'Siparişler', href: '/siparisler', icon: FileSpreadsheet },
     { name: 'Raporlar', href: '/raporlar', icon: BarChart3 },
+    ...(user?.role === 'SUPER_ADMIN' ? [{ name: 'Kullanıcılar', href: '/kullanicilar', icon: Users }] : []),
+    { name: 'Aktivite', href: '/aktivite', icon: Activity },
     { name: 'Ayarlar', href: '/ayarlar', icon: Settings },
   ];
 

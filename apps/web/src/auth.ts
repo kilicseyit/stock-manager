@@ -47,6 +47,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 if (!user) return null;
 
+                if (user.isActive === false) {
+                    throw new Error("Hesabınız deaktive edilmiştir");
+                }
+
                 const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash);
                 if (!isValid) return null;
 

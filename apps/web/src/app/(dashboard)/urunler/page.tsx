@@ -19,6 +19,7 @@ import {
   QrCode,
   LayoutGrid,
   List,
+  History,
 } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -26,6 +27,7 @@ import ProductFormModal from '@/components/features/products/ProductFormModal';
 import ImportModal from '@/components/features/products/ImportModal';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
 import QrCodeModal from '@/components/features/products/QrCodeModal';
+import ProductHistoryModal from '@/components/features/products/ProductHistoryModal';
 
 interface ProductItem {
   id: string;
@@ -64,6 +66,7 @@ export default function ProductsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
   const [qrProduct, setQrProduct] = useState<ProductItem | null>(null);
+  const [historyProduct, setHistoryProduct] = useState<ProductItem | null>(null);
 
   // View Mode — 'list' | 'card' (persisted in localStorage)
   const [viewMode, setViewMode] = useState<'list' | 'card'>(() => {
@@ -442,8 +445,15 @@ export default function ProductsPage() {
                     {/* Hover action icons */}
                     <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
+                        onClick={(e) => { e.stopPropagation(); setHistoryProduct(product); }}
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-450 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-colors"
+                        title="Geçmiş"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); setQrProduct(product); }}
-                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-colors"
+                        className="p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-450 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-colors"
                         title="QR Kod"
                       >
                         <QrCode className="w-3.5 h-3.5" />
@@ -606,6 +616,17 @@ export default function ProductsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setHistoryProduct(product);
+                                }}
+                                className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
+                                title="Geçmiş"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setQrProduct(product);
                                 }}
                                 className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
@@ -744,6 +765,14 @@ export default function ProductsPage() {
       <QrCodeModal
         product={qrProduct}
         onClose={() => setQrProduct(null)}
+      />
+
+      {/* Product History Modal */}
+      <ProductHistoryModal
+        isOpen={!!historyProduct}
+        productId={historyProduct?.id || ''}
+        productName={historyProduct?.name || ''}
+        onClose={() => setHistoryProduct(null)}
       />
     </div>
   );

@@ -302,7 +302,16 @@ export default function SiparislerPage() {
                       key={order.id}
                       className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors"
                     >
-                      <td className="px-6 py-4 font-mono text-xs font-semibold">{order.id}</td>
+                      <td className="px-6 py-4 font-mono text-xs font-semibold">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span>{order.id}</span>
+                          {order.isAuto && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-605 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                              Otomatik
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 font-semibold text-zinc-900 dark:text-zinc-50">
                         {order.supplier.name}
                       </td>
@@ -490,7 +499,14 @@ export default function SiparislerPage() {
           <div className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-150 dark:border-zinc-800/80">
               <div>
-                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Sipariş Detayı</h2>
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                  Sipariş Detayı
+                  {detailQuery.data?.isAuto && (
+                    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-605 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/20">
+                      Otomatik Oluşturuldu
+                    </span>
+                  )}
+                </h2>
                 <p className="text-xs font-mono text-zinc-400 mt-0.5">Sipariş No: {selectedOrderId}</p>
               </div>
               <button

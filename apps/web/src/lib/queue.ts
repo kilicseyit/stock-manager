@@ -39,3 +39,32 @@ export async function scheduleLowStockCheck(): Promise<void> {
     console.log('[Queue] Low stock check job scheduled (every 5 min)');
   }
 }
+
+// Weekly report queue
+export const WEEKLY_REPORT_QUEUE = 'weekly-report-queue';
+
+export function getWeeklyReportQueue(): Queue {
+  const connection = getRedisConnection();
+  return new Queue(WEEKLY_REPORT_QUEUE, { connection });
+}
+
+/**
+ * Her Pazartesi sabah 08:00'de çalışan haftalık stok raporu gönderme job'ını ekler.
+ */
+export async function scheduleWeeklyReport(): Promise<void> {
+  const queue = getWeeklyReportQueue();
+  const repeatableJobs = await queue.getRepeatableJobs();
+  const exists = repeatableJobs.some((j) => j.name === 'weekly');
+  if (!exists) {
+    await queue.add(
+      'weekly',
+      {},
+      {
+        repeat: { pattern: '0 8 * * 1' }, // Pazartesi 08:00 cron deseni
+        removeOnComplete: 10,
+        removeOnFail: 5,
+      }
+    );
+    console.log('[Queue] Weekly report job scheduled (cron: every Monday at 08:00)');
+  }
+}
