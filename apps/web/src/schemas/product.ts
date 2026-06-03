@@ -26,7 +26,7 @@ export const productFilterSchema = z.object({
   search: sanitizedString.optional(),
   categoryId: z.string().optional(),
   cursor: z.string().optional(),
-  limit: z.number().int().min(1).max(100).default(20),
+  limit: z.number().int().min(1).max(1000).default(20),
 });
 
 export const bulkProductSchema = z.object({

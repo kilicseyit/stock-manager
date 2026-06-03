@@ -295,7 +295,7 @@ export default function SayimPage() {
                             <input
                               type="number"
                               min={0}
-                              value={countedVal}
+                              value={countedVal ?? ''}
                               onChange={(e) => handleQtyChange(p.id, e.target.value)}
                               placeholder={String(expected)}
                               className="w-28 text-center px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-500"
