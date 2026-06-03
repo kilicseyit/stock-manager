@@ -20,6 +20,7 @@ import {
   FileText,
 } from 'lucide-react';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
+import { useToast } from '@/components/ui/Toast';
 
 interface OrderItemFormValue {
   productId: string;
@@ -45,6 +46,7 @@ interface ReceiveBatchItem {
 }
 
 export default function SiparislerPage() {
+  const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -75,6 +77,10 @@ export default function SiparislerPage() {
     onSuccess: () => {
       utils.order.getAll.invalidate();
       closeCreateForm();
+      showToast('Sipariş başarıyla oluşturuldu.', 'success');
+    },
+    onError: (err) => {
+      showToast(err.message || 'Sipariş oluşturulamadı.', 'error');
     },
   });
 
@@ -84,6 +90,10 @@ export default function SiparislerPage() {
       if (selectedOrderId) {
         utils.order.getById.invalidate({ id: selectedOrderId });
       }
+      showToast('Sipariş durumu güncellendi.', 'success');
+    },
+    onError: (err) => {
+      showToast(err.message || 'Sipariş durumu güncellenemedi.', 'error');
     },
   });
 
@@ -97,6 +107,10 @@ export default function SiparislerPage() {
       utils.location.getAll.invalidate();
       setIsReceiveOpen(false);
       setReceiveItems([]);
+      showToast('Mal kabulü başarıyla kaydedildi ve stok güncellendi.', 'success');
+    },
+    onError: (err) => {
+      showToast(err.message || 'Mal kabulü sırasında hata oluştu.', 'error');
     },
   });
 
@@ -203,13 +217,13 @@ export default function SiparislerPage() {
     // Validasyon: lokasyon seçilmemiş ürün var mı kontrol et (eğer batchQty > 0 ise)
     const activeItems = receiveItems.filter((item) => item.batchQty > 0);
     if (activeItems.length === 0) {
-      alert('Lütfen mal kabulü yapmak için en az bir ürüne kabul miktarı girin.');
+      showToast('Lütfen mal kabulü yapmak için en az bir ürüne kabul miktarı girin.', 'warning');
       return;
     }
 
     const missingLocation = activeItems.some((item) => !item.locationId);
     if (missingLocation) {
-      alert('Kabul miktarı girilen tüm ürünler için depo lokasyonu seçilmesi zorunludur.');
+      showToast('Kabul miktarı girilen tüm ürünler için depo lokasyonu seçilmesi zorunludur.', 'warning');
       return;
     }
 

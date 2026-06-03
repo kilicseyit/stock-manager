@@ -19,6 +19,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
+import { useToast } from '@/components/ui/Toast';
 
 type SettingsTab = 'profile' | 'warehouse' | 'system';
 
@@ -35,6 +36,7 @@ interface WarehouseFormValues {
 }
 
 export default function AyarlarPage() {
+  const { showToast } = useToast();
   const { data: session, update: updateSession } = useSession();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
@@ -97,9 +99,10 @@ export default function AyarlarPage() {
     onSuccess: () => {
       utils.location.getWarehouses.invalidate();
       setDeleteWarehouseId(null);
+      showToast('Depo başarıyla silindi.', 'success');
     },
     onError: (err) => {
-      alert(err.message);
+      showToast(err.message || 'Depo silinirken hata oluştu.', 'error');
       setDeleteWarehouseId(null);
     },
   });

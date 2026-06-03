@@ -6,6 +6,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SidebarProvider } from '@/components/SidebarContext';
 import DynamicMainContent from '@/components/DynamicMainContent';
 
+import { ToastProvider } from '@/components/ui/Toast';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -18,26 +21,30 @@ export default async function DashboardLayout({
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex bg-zinc-50 dark:bg-[#070b13] transition-colors duration-300">
-        {/* Sidebar Navigation */}
-        <Sidebar user={session.user} />
+    <ToastProvider>
+      <ConfirmProvider>
+        <SidebarProvider>
+          <div className="min-h-screen flex bg-zinc-50 dark:bg-[#070b13] transition-colors duration-300">
+            {/* Sidebar Navigation */}
+            <Sidebar user={session.user} />
 
-        {/* Main Content Panel — width adjusts with sidebar */}
-        <DynamicMainContent>
-          {/* Top Header Panel */}
-          <Topbar />
+            {/* Main Content Panel — width adjusts with sidebar */}
+            <DynamicMainContent>
+              {/* Top Header Panel */}
+              <Topbar />
 
-          {/* Dynamic Route Content */}
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-            <div className="max-w-7xl mx-auto">
-              <ErrorBoundary>
-                {children}
-              </ErrorBoundary>
-            </div>
-          </main>
-        </DynamicMainContent>
-      </div>
-    </SidebarProvider>
+              {/* Dynamic Route Content */}
+              <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+                <div className="max-w-7xl mx-auto">
+                  <ErrorBoundary>
+                    {children}
+                  </ErrorBoundary>
+                </div>
+              </main>
+            </DynamicMainContent>
+          </div>
+        </SidebarProvider>
+      </ConfirmProvider>
+    </ToastProvider>
   );
 }

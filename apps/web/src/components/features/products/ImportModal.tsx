@@ -5,6 +5,7 @@ import { X, Upload, FileSpreadsheet, Download, AlertCircle, CheckCircle2, Loader
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { trpc } from '@/trpc/client';
+import { useToast } from '@/components/ui/Toast';
 
 interface ImportRow {
   index: number;
@@ -27,6 +28,7 @@ export default function ImportModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsedRows, setParsedRows] = useState<ImportRow[]>([]);
   const [importResults, setImportResults] = useState<{ index: number; success: boolean; sku?: string; error?: string }[] | null>(null);
@@ -65,12 +67,12 @@ export default function ImportModal({
           const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
           processRows(jsonData);
         } catch (err) {
-          alert('Dosya okunamadı. Lütfen şablonu kullanın.');
+          showToast('Dosya okunamadı. Lütfen şablonu kullanın.', 'error');
         }
       };
       reader.readAsBinaryString(file);
     } else {
-      alert('Desteklenmeyen dosya formatı. Excel (.xlsx, .xls) veya CSV kullanın.');
+      showToast('Desteklenmeyen dosya formatı. Excel (.xlsx, .xls) veya CSV kullanın.', 'warning');
     }
   };
 
@@ -146,7 +148,7 @@ export default function ImportModal({
     const rowsToImport = importOnlyValid ? parsedRows.filter((r) => r.isValid) : parsedRows;
 
     if (rowsToImport.length === 0) {
-      alert('İçe aktarılacak geçerli satır bulunmuyor.');
+      showToast('İçe aktarılacak geçerli satır bulunmuyor.', 'warning');
       return;
     }
 

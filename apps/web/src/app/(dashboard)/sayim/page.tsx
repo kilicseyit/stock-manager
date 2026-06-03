@@ -13,12 +13,14 @@ import {
   Search,
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
+import { useToast } from '@/components/ui/Toast';
 
 interface CountState {
   [productId: string]: number | '';
 }
 
 export default function SayimPage() {
+  const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [countedQuantities, setCountedQuantities] = useState<CountState>({});
   const [isSaved, setIsSaved] = useState(false);
@@ -71,7 +73,7 @@ export default function SayimPage() {
     );
 
     if (productsToAdjust.length === 0) {
-      alert('Lütfen en az bir ürün için sayılan miktar girin.');
+      showToast('Lütfen en az bir ürün için sayılan miktar girin.', 'warning');
       return;
     }
 
@@ -129,10 +131,10 @@ export default function SayimPage() {
       await utils.inventory.getStock.invalidate();
       await utils.product.getAll.invalidate();
       setIsSaved(true);
-      alert('Sayım sonuçlarına göre envanter düzeltmeleri başarıyla kaydedildi!');
+      showToast('Sayım sonuçlarına göre envanter düzeltmeleri başarıyla kaydedildi!', 'success');
     } catch (err) {
       console.error('Sayım kaydetme hatası:', err);
-      alert('Düzeltmeler kaydedilirken bir hata oluştu.');
+      showToast('Düzeltmeler kaydedilirken bir hata oluştu.', 'error');
     } finally {
       setIsSaving(false);
     }

@@ -20,6 +20,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/Toast';
 
 type UserRole = 'SUPER_ADMIN' | 'WAREHOUSE_MANAGER' | 'STAFF' | 'VIEWER';
 
@@ -33,6 +34,7 @@ interface UserFormValues {
 }
 
 export default function KullanicilarPage() {
+  const { showToast } = useToast();
   const { data: session, status } = useSession();
   const utils = trpc.useUtils();
 
@@ -56,9 +58,10 @@ export default function KullanicilarPage() {
     onSuccess: () => {
       utils.user.getAll.invalidate();
       closeModal();
+      showToast('Kullanıcı başarıyla oluşturuldu.', 'success');
     },
     onError: (err) => {
-      alert(err.message || 'Kullanıcı oluşturulurken hata oluştu.');
+      showToast(err.message || 'Kullanıcı oluşturulurken hata oluştu.', 'error');
     },
   });
 
@@ -66,18 +69,20 @@ export default function KullanicilarPage() {
     onSuccess: () => {
       utils.user.getAll.invalidate();
       closeModal();
+      showToast('Kullanıcı bilgileri güncellendi.', 'success');
     },
     onError: (err) => {
-      alert(err.message || 'Kullanıcı güncellenirken hata oluştu.');
+      showToast(err.message || 'Kullanıcı güncellenirken hata oluştu.', 'error');
     },
   });
 
   const toggleStatusMutation = trpc.user.deactivate.useMutation({
     onSuccess: () => {
       utils.user.getAll.invalidate();
+      showToast('Kullanıcı durumu güncellendi.', 'success');
     },
     onError: (err) => {
-      alert(err.message || 'Durum değiştirilirken hata oluştu.');
+      showToast(err.message || 'Durum değiştirilirken hata oluştu.', 'error');
     },
   });
 
@@ -190,7 +195,7 @@ export default function KullanicilarPage() {
       });
     } else {
       if (!data.password || data.password.length < 6) {
-        alert('Yeni kullanıcılar için en az 6 karakterlik şifre zorunludur.');
+        showToast('Yeni kullanıcılar için en az 6 karakterlik şifre zorunludur.', 'warning');
         return;
       }
       createUserMutation.mutate({
@@ -205,7 +210,7 @@ export default function KullanicilarPage() {
 
   const handleToggleActive = (user: any) => {
     if (user.id === session?.user?.id) {
-      alert('Kendi hesabınızı deaktive edemezsiniz.');
+      showToast('Kendi hesabınızı deaktive edemezsiniz.', 'warning');
       return;
     }
     toggleStatusMutation.mutate({
