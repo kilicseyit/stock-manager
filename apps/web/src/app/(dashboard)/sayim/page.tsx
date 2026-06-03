@@ -23,6 +23,7 @@ export default function SayimPage() {
   const [countedQuantities, setCountedQuantities] = useState<CountState>({});
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [diffReport, setDiffReport] = useState({ surplus: 0, deficit: 0, equal: 0 });
 
   const utils = trpc.useUtils();
 
@@ -103,6 +104,27 @@ export default function SayimPage() {
           reason: `Stok sayım düzeltmesi (Beklenen: ${expected}, Sayılan: ${counted})`,
         });
       }
+
+      let surplus = 0;
+      let deficit = 0;
+      let equal = 0;
+
+      productsToAdjust.forEach((productId) => {
+        const counted = countedQuantities[productId];
+        if (counted !== '') {
+          const expected = getExpectedQty(productId);
+          const countedNum = Number(counted);
+          if (countedNum > expected) {
+            surplus++;
+          } else if (countedNum < expected) {
+            deficit++;
+          } else {
+            equal++;
+          }
+        }
+      });
+
+      setDiffReport({ surplus, deficit, equal });
 
       await utils.inventory.getStock.invalidate();
       await utils.product.getAll.invalidate();
@@ -219,9 +241,7 @@ export default function SayimPage() {
             <div>
               <p className="text-xs text-zinc-500">Fazla Çıkan Ürünler</p>
               <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {Object.keys(countedQuantities).filter(
-                  (id) => countedQuantities[id] !== '' && Number(countedQuantities[id]) > getExpectedQty(id)
-                ).length} Kalem
+                {diffReport.surplus} Kalem
               </h4>
             </div>
           </div>
@@ -230,9 +250,7 @@ export default function SayimPage() {
             <div>
               <p className="text-xs text-zinc-500">Eksik Çıkan Ürünler</p>
               <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {Object.keys(countedQuantities).filter(
-                  (id) => countedQuantities[id] !== '' && Number(countedQuantities[id]) < getExpectedQty(id)
-                ).length} Kalem
+                {diffReport.deficit} Kalem
               </h4>
             </div>
           </div>
