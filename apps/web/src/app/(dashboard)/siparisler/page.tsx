@@ -155,18 +155,20 @@ export default function SiparislerPage() {
 
   // Mal Kabul Başlat
   const startReceiveWorkflow = (orderDetail: any) => {
-    const itemsToReceive: ReceiveBatchItem[] = orderDetail.items.map((item: any) => ({
-      productId: item.productId,
-      productName: item.product.name,
-      productSku: item.product.sku,
-      productBarcode: item.product.barcode,
-      orderedQty: item.orderedQty,
-      receivedQty: item.receivedQty,
-      remainingQty: item.orderedQty - item.receivedQty,
-      batchQty: 0, // default 0
-      locationId: '', // zorunlu
-      isScanned: false,
-    }));
+    const itemsToReceive: ReceiveBatchItem[] = orderDetail.items
+      .filter((item: any) => item.orderedQty - item.receivedQty > 0)
+      .map((item: any) => ({
+        productId: item.productId,
+        productName: item.product.name,
+        productSku: item.product.sku,
+        productBarcode: item.product.barcode,
+        orderedQty: item.orderedQty,
+        receivedQty: item.receivedQty,
+        remainingQty: item.orderedQty - item.receivedQty,
+        batchQty: 0, // default 0
+        locationId: '', // zorunlu
+        isScanned: false,
+      }));
     setReceiveItems(itemsToReceive);
     setIsReceiveOpen(true);
   };
