@@ -183,19 +183,23 @@ export default function SiparislerPage() {
 
     if (matchedIndex !== -1) {
       const item = receiveItems[matchedIndex];
-      if (item.batchQty < item.remainingQty) {
-        const updated = [...receiveItems];
-        updated[matchedIndex] = {
-          ...item,
-          batchQty: item.batchQty + 1,
-          isScanned: true,
-        };
-        setReceiveItems(updated);
+      
+      // Barkod daha önce eşleştirilmişse tekrar eşleştirme isteme / hata verme
+      if (item.isScanned) {
+        showToast(`Bu barkod zaten eşleştirildi: ${item.productName}`, 'info');
         setBarcodeInput('');
-        showToast(`Barkod eşleştirildi: ${item.productName}`, 'success');
-      } else {
-        setBarcodeError(`Ürün zaten tamamen kabul edildi: ${item.productName}`);
+        return;
       }
+
+      const updated = [...receiveItems];
+      updated[matchedIndex] = {
+        ...item,
+        isScanned: true,
+        batchQty: item.batchQty === 0 ? 1 : item.batchQty,
+      };
+      setReceiveItems(updated);
+      setBarcodeInput('');
+      showToast(`Barkod eşleştirildi: ${item.productName}`, 'success');
     } else {
       setBarcodeError(`Siparişte bu barkoda sahip ürün bulunamadı: ${barcodeInput}`);
     }
@@ -209,7 +213,6 @@ export default function SiparislerPage() {
     updated[index] = { 
       ...item, 
       batchQty: qty,
-      isScanned: false, // Reset scanned verification on manual edit
     };
     setReceiveItems(updated);
   };
@@ -710,7 +713,10 @@ export default function SiparislerPage() {
                   type="text"
                   placeholder="Barkodu elle girin veya barkod okuyucuyla okutun..."
                   value={barcodeInput}
-                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  onChange={(e) => {
+                    setBarcodeInput(e.target.value);
+                    if (barcodeError) setBarcodeError(null);
+                  }}
                   className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-750 bg-white dark:bg-zinc-950/20 rounded-lg text-xs"
                 />
                 <button
@@ -727,6 +733,7 @@ export default function SiparislerPage() {
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="space-y-3">
                 {receiveItems.map((item, index) => {
+                  const isScannedAndActive = item.batchQty > 0 && item.isScanned;
                   const isUnscannedError = item.batchQty > 0 && !item.isScanned;
                   return (
                     <div
@@ -734,6 +741,8 @@ export default function SiparislerPage() {
                       className={`p-4 rounded-xl border grid grid-cols-12 gap-4 items-center transition-all ${
                         isUnscannedError 
                           ? 'border-rose-400 bg-rose-50/5 dark:border-rose-900/40' 
+                          : isScannedAndActive
+                          ? 'border-emerald-500 bg-emerald-50/5 dark:border-emerald-900/30'
                           : 'border-zinc-150 dark:border-zinc-850 bg-white dark:bg-zinc-950/20'
                       }`}
                     >
@@ -747,7 +756,7 @@ export default function SiparislerPage() {
                             <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${
                               item.isScanned 
                                 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' 
-                                : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-450 border border-rose-100 dark:border-rose-900/20'
+                                : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-455 border border-rose-100 dark:border-rose-900/20'
                             }`}>
                               {item.isScanned ? 'Barkod Eşleşti' : 'Barkod Taraması Gerekli'}
                             </span>
