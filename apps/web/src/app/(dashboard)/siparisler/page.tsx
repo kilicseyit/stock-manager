@@ -43,6 +43,7 @@ interface ReceiveBatchItem {
   remainingQty: number;
   batchQty: number; // Miktar girişi
   locationId: string; // Zorunlu lokasyon
+  isScanned?: boolean;
 }
 
 export default function SiparislerPage() {
@@ -164,6 +165,7 @@ export default function SiparislerPage() {
       remainingQty: item.orderedQty - item.receivedQty,
       batchQty: 0, // default 0
       locationId: '', // zorunlu
+      isScanned: false,
     }));
     setReceiveItems(itemsToReceive);
     setIsReceiveOpen(true);
@@ -186,10 +188,11 @@ export default function SiparislerPage() {
         updated[matchedIndex] = {
           ...item,
           batchQty: item.batchQty + 1,
+          isScanned: true,
         };
         setReceiveItems(updated);
         setBarcodeInput('');
-        // Flash success
+        showToast(`Barkod eşleştirildi: ${item.productName}`, 'success');
       } else {
         setBarcodeError(`Ürün zaten tamamen kabul edildi: ${item.productName}`);
       }
@@ -203,7 +206,11 @@ export default function SiparislerPage() {
     const item = updated[index];
     const maxQty = item.remainingQty;
     const qty = Math.max(0, Math.min(maxQty, val));
-    updated[index] = { ...item, batchQty: qty };
+    updated[index] = { 
+      ...item, 
+      batchQty: qty,
+      isScanned: false, // Reset scanned verification on manual edit
+    };
     setReceiveItems(updated);
   };
 
@@ -224,6 +231,12 @@ export default function SiparislerPage() {
     const missingLocation = activeItems.some((item) => !item.locationId);
     if (missingLocation) {
       showToast('Kabul miktarı girilen tüm ürünler için depo lokasyonu seçilmesi zorunludur.', 'warning');
+      return;
+    }
+
+    const hasUnscanned = activeItems.some((item) => !item.isScanned);
+    if (hasUnscanned) {
+      showToast('Lütfen tüm kabul edilen kalemleri barkod ile eşleştirin.', 'warning');
       return;
     }
 
@@ -713,24 +726,41 @@ export default function SiparislerPage() {
             {/* Items Table */}
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="space-y-3">
-                {receiveItems.map((item, index) => (
-                  <div
-                    key={item.productId}
-                    className="p-4 rounded-xl border border-zinc-150 dark:border-zinc-850 bg-white dark:bg-zinc-950/20 grid grid-cols-12 gap-4 items-center"
-                  >
-                    {/* Item Details */}
-                    <div className="col-span-5 space-y-1">
-                      <p className="font-bold text-xs text-zinc-900 dark:text-zinc-50 truncate">
-                        {item.productName}
-                      </p>
-                      <p className="text-[10px] text-zinc-400">SKU: {item.productSku}</p>
-                      {item.productBarcode && (
-                        <p className="text-[10px] text-zinc-500 font-semibold">Barkod: {item.productBarcode}</p>
-                      )}
-                      <p className="text-[10px] text-zinc-500">
-                        Sipariş: {item.orderedQty} | Kalan: {item.remainingQty}
-                      </p>
-                    </div>
+                {receiveItems.map((item, index) => {
+                  const isUnscannedError = item.batchQty > 0 && !item.isScanned;
+                  return (
+                    <div
+                      key={item.productId}
+                      className={`p-4 rounded-xl border grid grid-cols-12 gap-4 items-center transition-all ${
+                        isUnscannedError 
+                          ? 'border-rose-400 bg-rose-50/5 dark:border-rose-900/40' 
+                          : 'border-zinc-150 dark:border-zinc-850 bg-white dark:bg-zinc-950/20'
+                      }`}
+                    >
+                      {/* Item Details */}
+                      <div className="col-span-5 space-y-1">
+                        <div className="flex flex-col gap-1 items-start">
+                          <p className="font-bold text-xs text-zinc-900 dark:text-zinc-50 truncate">
+                            {item.productName}
+                          </p>
+                          {item.batchQty > 0 && (
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              item.isScanned 
+                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' 
+                                : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-450 border border-rose-100 dark:border-rose-900/20'
+                            }`}>
+                              {item.isScanned ? 'Barkod Eşleşti' : 'Barkod Taraması Gerekli'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-zinc-400">SKU: {item.productSku}</p>
+                        {item.productBarcode && (
+                          <p className="text-[10px] text-zinc-500 font-semibold">Barkod: {item.productBarcode}</p>
+                        )}
+                        <p className="text-[10px] text-zinc-500">
+                          Sipariş: {item.orderedQty} | Kalan: {item.remainingQty}
+                        </p>
+                      </div>
 
                     {/* Batch Receive Qty Input */}
                     <div className="col-span-3">
@@ -777,7 +807,8 @@ export default function SiparislerPage() {
                       </select>
                     </div>
                   </div>
-                ))}
+              );
+            })}
               </div>
             </div>
 
