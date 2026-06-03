@@ -3,11 +3,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ThemeToggle from './ThemeToggle';
 import NotificationBell from './NotificationBell';
-import { Search, HelpCircle, Package, Loader2, X, Menu } from 'lucide-react';
+import { Search, HelpCircle, Package, Loader2, X, Menu, Compass } from 'lucide-react';
 import { trpc } from '@/trpc/client';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from './SidebarContext';
+
 
 export default function Topbar() {
   const router = useRouter();
@@ -181,6 +182,15 @@ export default function Topbar() {
 
       {/* Right-side Utilities */}
       <div className="flex items-center gap-3">
+        {/* Onboarding Guide */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('restart-onboarding'))}
+          title="Hızlı Tur Rehberini Başlat"
+          className="p-2 rounded-lg text-zinc-550 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+        >
+          <Compass className="w-5 h-5" />
+        </button>
+
         {/* Help Center */}
         <button className="p-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
           <HelpCircle className="w-5 h-5" />

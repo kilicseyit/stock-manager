@@ -174,6 +174,28 @@ export default function ProductsPage() {
   }, [queryData]);
   /* eslint-enable */
 
+  // Keyboard shortcut event listeners
+  useEffect(() => {
+    const handleTriggerNew = () => {
+      handleCreateClick();
+    };
+    const handleCloseActive = () => {
+      setIsFormOpen(false);
+      setIsImportOpen(false);
+      setProductToDelete(null);
+      setQrProduct(null);
+      setHistoryProduct(null);
+    };
+
+    window.addEventListener('trigger-new-modal', handleTriggerNew);
+    window.addEventListener('close-active-modal', handleCloseActive);
+
+    return () => {
+      window.removeEventListener('trigger-new-modal', handleTriggerNew);
+      window.removeEventListener('close-active-modal', handleCloseActive);
+    };
+  }, []);
+
   // Alert triggers
   const triggerAlert = (type: 'success' | 'error', text: string) => {
     setAlertMessage({ type, text });
@@ -285,6 +307,7 @@ export default function ProductsPage() {
           >
             <Plus className="w-4 h-4" />
             Yeni Ürün
+            <kbd className="hidden md:inline-block px-1.5 py-0.5 rounded bg-indigo-500 text-[10px] font-bold font-mono text-indigo-100">Ctrl+N</kbd>
           </button>
         </div>
       </div>

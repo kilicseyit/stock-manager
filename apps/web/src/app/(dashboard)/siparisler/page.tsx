@@ -153,6 +153,26 @@ export default function SiparislerPage() {
     });
   };
 
+  // Keyboard shortcut event listeners
+  React.useEffect(() => {
+    const handleTriggerNew = () => {
+      setIsCreateOpen(true);
+    };
+    const handleCloseActive = () => {
+      closeCreateForm();
+      setIsReceiveOpen(false);
+      setSelectedOrderId(null);
+    };
+
+    window.addEventListener('trigger-new-modal', handleTriggerNew);
+    window.addEventListener('close-active-modal', handleCloseActive);
+
+    return () => {
+      window.removeEventListener('trigger-new-modal', handleTriggerNew);
+      window.removeEventListener('close-active-modal', handleCloseActive);
+    };
+  }, []);
+
   // Mal Kabul Başlat
   const startReceiveWorkflow = (orderDetail: any) => {
     const itemsToReceive: ReceiveBatchItem[] = orderDetail.items
@@ -292,6 +312,7 @@ export default function SiparislerPage() {
         >
           <Plus className="w-4 h-4" />
           Yeni Sipariş Oluştur
+          <kbd className="hidden md:inline-block px-1.5 py-0.5 rounded bg-indigo-505 text-[10px] font-bold font-mono text-indigo-100">Ctrl+N</kbd>
         </button>
       </div>
 

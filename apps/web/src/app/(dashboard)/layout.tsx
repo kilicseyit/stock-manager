@@ -8,6 +8,7 @@ import DynamicMainContent from '@/components/DynamicMainContent';
 
 import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
+import DashboardClientInit from '@/components/DashboardClientInit';
 
 export default async function DashboardLayout({
   children,
@@ -43,8 +44,11 @@ export default async function DashboardLayout({
               </main>
             </DynamicMainContent>
           </div>
+          {/* Client-side Initializer for Shortcuts, Onboarding, etc. */}
+          <DashboardClientInit userId={session.user.id} />
         </SidebarProvider>
       </ConfirmProvider>
     </ToastProvider>
   );
 }
+

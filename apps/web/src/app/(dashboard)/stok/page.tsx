@@ -91,6 +91,25 @@ export default function StokPage() {
     return unsubscribe;
   }, [onInventoryUpdate, utils]);
 
+  // Keyboard shortcut event listeners
+  useEffect(() => {
+    const handleTriggerNew = () => {
+      setShowForm(true);
+    };
+    const handleCloseActive = () => {
+      setShowForm(false);
+      setShowImportModal(false);
+    };
+
+    window.addEventListener('trigger-new-modal', handleTriggerNew);
+    window.addEventListener('close-active-modal', handleCloseActive);
+
+    return () => {
+      window.removeEventListener('trigger-new-modal', handleTriggerNew);
+      window.removeEventListener('close-active-modal', handleCloseActive);
+    };
+  }, []);
+
   const stats = statsQuery.data;
   const products = productsQuery.data?.items ?? [];
   const locations = locationsQuery.data ?? [];
@@ -132,6 +151,7 @@ export default function StokPage() {
           >
             <Plus className="w-4 h-4" />
             Stok Hareketi
+            <kbd className="hidden md:inline-block px-1.5 py-0.5 rounded bg-indigo-505 text-[10px] font-bold font-mono text-indigo-100">Ctrl+N</kbd>
           </button>
         </div>
       </div>

@@ -17,7 +17,7 @@ import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type ReportTab = 'stock' | 'movement' | 'supplier';
+type ReportTab = 'stock' | 'movement' | 'supplier' | 'aging';
 
 export default function RaporlarPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('stock');
@@ -55,15 +55,21 @@ export default function RaporlarPage() {
     refetchOnWindowFocus: false,
   });
 
+  const agingReportQuery = trpc.analytics.getStockAging.useQuery(undefined, {
+    enabled: activeTab === 'aging',
+    refetchOnWindowFocus: false,
+  });
+
   const isLoading =
     (activeTab === 'stock' && stockReportQuery.isLoading) ||
     (activeTab === 'movement' && movementReportQuery.isLoading) ||
-    (activeTab === 'supplier' && supplierReportQuery.isLoading);
+    (activeTab === 'supplier' && supplierReportQuery.isLoading) ||
+    (activeTab === 'aging' && agingReportQuery.isLoading);
 
   // Gelişmiş Çoklu Sayfa Excel Export
   const handleExportMultiSheetExcel = async () => {
     try {
-      const [snapshotData, movementData, supplierData] = await Promise.all([
+      const [snapshotData, movementData, supplierData, agingData] = await Promise.all([
         utils.client.analytics.getStockSnapshot.query(),
         utils.client.analytics.getStockMovementReport.query({
           startDate: startDate || null,
@@ -71,6 +77,7 @@ export default function RaporlarPage() {
           type: movementType === 'all' || !movementType ? null : (movementType as any),
         }),
         utils.client.analytics.getSupplierPerformanceReport.query(),
+        utils.client.analytics.getStockAging.query(),
       ]);
 
       const workbook = new ExcelJS.Workbook();
@@ -133,6 +140,34 @@ export default function RaporlarPage() {
       supplierData.forEach((row) => ws3.addRow(row));
       ws3.getRow(1).font = { name: 'Arial', family: 4, size: 11, bold: true, color: { argb: 'FFFFFF' } };
       ws3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F46E5' } };
+
+      // Sheet 4: Stok Yaşlandırma
+      const ws4 = workbook.addWorksheet('Stok Yaşlandırma');
+      ws4.columns = [
+        { header: 'Ürün Adı', key: 'name', width: 25 },
+        { header: 'SKU', key: 'sku', width: 15 },
+        { header: 'Kategori', key: 'categoryName', width: 18 },
+        { header: 'Mevcut Stok', key: 'currentStock', width: 15 },
+        { header: 'Son Hareket Tarihi', key: 'lastMovement', width: 20 },
+        { header: 'Hareketsiz Gün Sayısı', key: 'daysWithoutMovement', width: 20 },
+        { header: 'Durum', key: 'categoryLabel', width: 15 },
+      ];
+      [...agingData.items]
+        .sort((a, b) => b.daysWithoutMovement - a.daysWithoutMovement)
+        .forEach((m) => {
+          ws4.addRow({
+            ...m,
+            lastMovement: new Date(m.lastMovementDate).toLocaleDateString('tr-TR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          });
+        });
+      ws4.getRow(1).font = { name: 'Arial', family: 4, size: 11, bold: true, color: { argb: 'FFFFFF' } };
+      ws4.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F46E5' } };
 
       // Buffer yaz ve indir
       const buffer = await workbook.xlsx.writeBuffer();
@@ -200,6 +235,29 @@ export default function RaporlarPage() {
           { header: 'Toplam Harcama (₺)', key: 'totalSpent', width: 20 },
         ];
         await generateExcel('Tedarikci Performans Raporu', columns, data);
+      } else if (activeTab === 'aging' && agingReportQuery.data) {
+        const data = [...agingReportQuery.data.items]
+          .sort((a, b) => b.daysWithoutMovement - a.daysWithoutMovement)
+          .map((item) => ({
+            ...item,
+            lastMovement: new Date(item.lastMovementDate).toLocaleDateString('tr-TR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }));
+        const columns = [
+          { header: 'Ürün Adı', key: 'name', width: 25 },
+          { header: 'SKU', key: 'sku', width: 15 },
+          { header: 'Kategori', key: 'categoryName', width: 18 },
+          { header: 'Mevcut Stok', key: 'currentStock', width: 15 },
+          { header: 'Son Hareket Tarihi', key: 'lastMovement', width: 20 },
+          { header: 'Hareketsiz Gün Sayısı', key: 'daysWithoutMovement', width: 20 },
+          { header: 'Durum', key: 'categoryLabel', width: 15 },
+        ];
+        await generateExcel('Stok Yaslandirma Raporu', columns, data);
       }
     } catch (err) {
       console.error('Excel export hatası:', err);
@@ -305,6 +363,24 @@ export default function RaporlarPage() {
           `₺${r.totalSpent.toLocaleString('tr-TR')}`,
         ]);
         await generatePDF('Tedarikçi Performans Raporu', headers, rows);
+      } else if (activeTab === 'aging' && agingReportQuery.data) {
+        const headers = [['Ürün Adı', 'SKU', 'Kategori', 'Mevcut Stok', 'Son Hareket', 'Gün Sayısı', 'Durum']];
+        const rows = [...agingReportQuery.data.items]
+          .sort((a, b) => b.daysWithoutMovement - a.daysWithoutMovement)
+          .map((r) => [
+            r.name,
+            r.sku,
+            r.categoryName,
+            r.currentStock,
+            new Date(r.lastMovementDate).toLocaleDateString('tr-TR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            }),
+            `${r.daysWithoutMovement} gün`,
+            r.categoryLabel,
+          ]);
+        await generatePDF('Stok Yaşlandırma Raporu', headers, rows);
       }
     } catch (err) {
       console.error('PDF export hatası:', err);
@@ -418,6 +494,17 @@ export default function RaporlarPage() {
           <Truck className="w-4 h-4" />
           Tedarikçi Performansı
         </button>
+        <button
+          onClick={() => setActiveTab('aging')}
+          className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'aging'
+              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+              : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Stok Yaşlandırma
+        </button>
       </div>
 
       {/* Filters (only for stock movement tab) */}
@@ -485,7 +572,9 @@ export default function RaporlarPage() {
               ? 'Stok Durum Detayları'
               : activeTab === 'movement'
               ? 'Envanter Giriş/Çıkış Hareket Kayıtları'
-              : 'Tedarikçi Satın Alma & Teslimat Performansı'}
+              : activeTab === 'supplier'
+              ? 'Tedarikçi Satın Alma & Teslimat Performansı'
+              : 'Stok Yaşlandırma (Hareketsizlik) Analizi'}
           </span>
         </div>
 
@@ -649,6 +738,72 @@ export default function RaporlarPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : activeTab === 'aging' && agingReportQuery.data ? (
+          <div>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-800/10">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Aktif Stok (0-30 Gün)</span>
+                <span className="text-xl font-extrabold text-emerald-600 mt-1">{agingReportQuery.data.summary.active} ürün</span>
+              </div>
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Yavaş Stok (31-90 Gün)</span>
+                <span className="text-xl font-extrabold text-amber-500 mt-1">{agingReportQuery.data.summary.slow} ürün</span>
+              </div>
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Hareketsiz Stok (91-180 Gün)</span>
+                <span className="text-xl font-extrabold text-orange-500 mt-1">{agingReportQuery.data.summary.inactive} ürün</span>
+              </div>
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Ölü Stok (180+ Gün)</span>
+                <span className="text-xl font-extrabold text-rose-600 mt-1">{agingReportQuery.data.summary.dead} ürün</span>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20 text-zinc-600 dark:text-zinc-400 font-medium">
+                    <th className="px-6 py-4">Ürün Adı</th>
+                    <th className="px-6 py-4">SKU</th>
+                    <th className="px-6 py-4">Kategori</th>
+                    <th className="px-6 py-4 text-center">Mevcut Stok</th>
+                    <th className="px-6 py-4">Son Hareket Tarihi</th>
+                    <th className="px-6 py-4 text-center">Gün Sayısı</th>
+                    <th className="px-6 py-4 text-center">Durum</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                  {[...agingReportQuery.data.items]
+                    .sort((a, b) => b.daysWithoutMovement - a.daysWithoutMovement)
+                    .map((r) => (
+                      <tr key={r.sku} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-zinc-900 dark:text-zinc-50">{r.name}</td>
+                        <td className="px-6 py-4 font-mono text-xs">{r.sku}</td>
+                        <td className="px-6 py-4">{r.categoryName}</td>
+                        <td className="px-6 py-4 text-center font-bold">{r.currentStock}</td>
+                        <td className="px-6 py-4 text-xs text-zinc-500 font-mono">
+                          {new Date(r.lastMovementDate).toLocaleDateString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="px-6 py-4 text-center font-bold text-zinc-900 dark:text-zinc-100">{r.daysWithoutMovement} gün</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${r.colorClass}`}>
+                            {r.categoryLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : null}
       </div>

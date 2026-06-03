@@ -345,6 +345,74 @@ export const analyticsRouter = router({
     });
   }),
 
+  /** Stok Yaşlandırma Analizi */
+  getStockAging: publicProcedure.query(async () => {
+    const products = await prisma.product.findMany({
+      include: {
+        category: { select: { name: true } },
+        stockItems: { select: { quantity: true } },
+        movements: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true }
+        }
+      }
+    });
+
+    const now = new Date();
+
+    const items = products.map((p) => {
+      const currentStock = p.stockItems.reduce((sum, item) => sum + item.quantity, 0);
+      const lastMovementDate = p.movements[0]?.createdAt ?? p.createdAt;
+      
+      const diffTime = Math.max(0, now.getTime() - lastMovementDate.getTime());
+      const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      let category: 'active' | 'slow' | 'inactive' | 'dead' = 'active';
+      let categoryLabel = 'Aktif';
+      let colorClass = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-450 border border-emerald-100 dark:border-emerald-900/20';
+      
+      if (days > 180) {
+        category = 'dead';
+        categoryLabel = 'Ölü Stok';
+        colorClass = 'bg-rose-50 text-rose-605 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-100/50 dark:border-rose-900/30';
+      } else if (days > 90) {
+        category = 'inactive';
+        categoryLabel = 'Hareketsiz';
+        colorClass = 'bg-orange-50 text-orange-605 dark:bg-orange-950/30 dark:text-orange-400 border border-orange-100/50 dark:border-orange-900/30';
+      } else if (days > 30) {
+        category = 'slow';
+        categoryLabel = 'Yavaş';
+        colorClass = 'bg-amber-50 text-amber-605 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100/50 dark:border-amber-900/30';
+      }
+
+      return {
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        categoryName: p.category?.name ?? '—',
+        currentStock,
+        lastMovementDate,
+        daysWithoutMovement: days,
+        category,
+        categoryLabel,
+        colorClass,
+      };
+    });
+
+    const summary = {
+      active: items.filter(i => i.category === 'active').length,
+      slow: items.filter(i => i.category === 'slow').length,
+      inactive: items.filter(i => i.category === 'inactive').length,
+      dead: items.filter(i => i.category === 'dead').length,
+    };
+
+    return {
+      items,
+      summary,
+    };
+  }),
+
   /** Panel hazır metrik havuzu için ek KPI metrikleri */
   getAdditionalMetrics: publicProcedure.query(async () => {
     // 1. Toplam Depo Sayısı
