@@ -300,4 +300,31 @@ export const userRouter = router({
         orderBy: { createdAt: 'desc' },
       });
     }),
+
+  getDashboardLayout: publicProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ input }) => {
+      const user = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { dashboardLayout: true },
+      });
+      return user?.dashboardLayout ?? null;
+    }),
+
+  saveDashboardLayout: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      layout: z.object({
+        kpiWidgets: z.array(z.string()),
+        mainWidgets: z.array(z.string()),
+        widgetSizes: z.record(z.string(), z.string()),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      const layoutJson = input.layout as unknown as import('@prisma/client').Prisma.InputJsonValue;
+      await prisma.user.update({
+        where: { id: input.userId },
+        data: { dashboardLayout: layoutJson },
+      });
+    }),
 });

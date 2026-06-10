@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Package, MapPin, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import EmptyState from '@/components/ui/EmptyState';
 
 interface StockItem {
   id: string;
@@ -93,15 +94,11 @@ export default function StockGrid({ items, isLoading }: StockGridProps) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-16">
-        <Package className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-          Stok Bulunamadı
-        </h3>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Henüz hiçbir lokasyonda stok kaydı yok.
-        </p>
-      </div>
+      <EmptyState
+        variant="stock"
+        title="Stok Bulunamadı"
+        description="Seçili filtrelere uygun stok kaydı yok veya henüz hiçbir lokasyona stok eklenmemiş."
+      />
     );
   }
 
@@ -171,10 +168,40 @@ export default function StockGrid({ items, isLoading }: StockGridProps) {
               </div>
             </div>
 
-            {/* Min/Max bilgisi */}
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-200/50 dark:border-zinc-700/30 text-[11px] text-zinc-500 dark:text-zinc-400">
-              <span>Min: {item.product.minStock} {item.product.unit}</span>
-              <span>Max: {item.product.maxStock ?? '—'} {item.product.unit}</span>
+            {/* Min/Max bilgisi + Progress Bar */}
+            <div className="mt-3 pt-3 border-t border-zinc-200/50 dark:border-zinc-700/30">
+              <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1.5">
+                <span>Min: {item.product.minStock} {item.product.unit}</span>
+                <span>Max: {item.product.maxStock ?? '—'} {item.product.unit}</span>
+              </div>
+              {/* Progress Bar */}
+              {(() => {
+                const cap = item.product.maxStock ?? Math.max(item.product.minStock * 4, item.quantity * 1.5, 1);
+                const pct = Math.min(100, Math.round((item.quantity / cap) * 100));
+                const barColor =
+                  status === 'critical' ? 'bg-red-500'
+                  : status === 'low' ? 'bg-amber-500'
+                  : status === 'over' ? 'bg-blue-500'
+                  : 'bg-emerald-500';
+                return (
+                  <div className="relative h-1.5 rounded-full bg-zinc-200/70 dark:bg-zinc-700/50 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                    {/* Min threshold marker */}
+                    {item.product.minStock > 0 && (
+                      <div
+                        className="absolute top-0 h-full w-px bg-zinc-400/60 dark:bg-zinc-500/60"
+                        style={{ left: `${Math.min(100, Math.round((item.product.minStock / cap) * 100))}%` }}
+                      />
+                    )}
+                  </div>
+                );
+              })()}
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-right mt-1">
+                {Math.min(100, Math.round((item.quantity / Math.max(item.product.maxStock ?? Math.max(item.product.minStock * 4, item.quantity * 1.5, 1), 1)) * 100))}% dolu
+              </p>
             </div>
           </div>
         );

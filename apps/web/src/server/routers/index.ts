@@ -8,6 +8,7 @@ import { supplierRouter } from './suppliers';
 import { orderRouter } from './orders';
 import { analyticsRouter } from './analytics';
 import { userRouter } from './users';
+import { emailTemplateRouter } from './emailTemplates';
 
 export const appRouter = router({
   category: categoryRouter,
@@ -19,6 +20,7 @@ export const appRouter = router({
   order: orderRouter,
   analytics: analyticsRouter,
   user: userRouter,
+  emailTemplate: emailTemplateRouter,
 });
 
 export type AppRouter = typeof appRouter;

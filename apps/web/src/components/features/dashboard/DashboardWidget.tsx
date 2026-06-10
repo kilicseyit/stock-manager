@@ -75,7 +75,7 @@ export default function DashboardWidget({
             {title}
           </h4>
         </div>
-        
+
         <div className="flex items-center gap-1">
           {/* Size Selection Dropdown */}
           {onSizeChange && size && (
@@ -93,10 +93,7 @@ export default function DashboardWidget({
                     Widget Boyutu
                   </div>
                   <button
-                    onClick={() => {
-                      onSizeChange('small');
-                      setIsMenuOpen(false);
-                    }}
+                    onClick={() => { onSizeChange('small'); setIsMenuOpen(false); }}
                     className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors ${
                       size === 'small' ? 'text-indigo-650 dark:text-indigo-400 bg-indigo-50/20 dark:bg-indigo-950/10' : 'text-zinc-700 dark:text-zinc-350'
                     }`}
@@ -104,10 +101,7 @@ export default function DashboardWidget({
                     Küçük (1/3)
                   </button>
                   <button
-                    onClick={() => {
-                      onSizeChange('medium');
-                      setIsMenuOpen(false);
-                    }}
+                    onClick={() => { onSizeChange('medium'); setIsMenuOpen(false); }}
                     className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors ${
                       size === 'medium' ? 'text-indigo-650 dark:text-indigo-400 bg-indigo-50/20 dark:bg-indigo-950/10' : 'text-zinc-700 dark:text-zinc-350'
                     }`}
@@ -115,10 +109,7 @@ export default function DashboardWidget({
                     Orta (2/3)
                   </button>
                   <button
-                    onClick={() => {
-                      onSizeChange('large');
-                      setIsMenuOpen(false);
-                    }}
+                    onClick={() => { onSizeChange('large'); setIsMenuOpen(false); }}
                     className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors ${
                       size === 'large' ? 'text-indigo-650 dark:text-indigo-400 bg-indigo-50/20 dark:bg-indigo-950/10' : 'text-zinc-700 dark:text-zinc-350'
                     }`}
@@ -133,10 +124,7 @@ export default function DashboardWidget({
           {/* Remove Widget Button */}
           {onRemove && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
               className="p-1 rounded-md text-zinc-400 hover:text-rose-500 dark:hover:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
               title="Kaldır"
             >

@@ -35,9 +35,10 @@ model User {
   passwordHash String
   role         Role      @default(STAFF)
   warehouseId  String?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  isActive         Boolean   @default(true)
+  dashboardLayout  Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   warehouse    Warehouse?      @relation(fields: [warehouseId], references: [id])
   movements    StockMovement[]
@@ -208,4 +209,15 @@ model ImportLog {
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+model EmailTemplateConfig {
+  id          String   @id @default(cuid())
+  templateKey String   @unique // low-stock-alert | weekly-report | order-created | welcome-email
+  label       String
+  accentColor String   @default("#4f46e5")
+  senderName  String   @default("StockManager")
+  footerText  String   @default("StockManager Depo Yönetim Sistemi")
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
 }

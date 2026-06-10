@@ -12,12 +12,13 @@ import {
   Download,
   Filter,
   Printer,
+  BarChart3,
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type ReportTab = 'stock' | 'movement' | 'supplier' | 'aging';
+type ReportTab = 'stock' | 'movement' | 'supplier' | 'aging' | 'abcxyz';
 
 export default function RaporlarPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('stock');
@@ -60,11 +61,17 @@ export default function RaporlarPage() {
     refetchOnWindowFocus: false,
   });
 
+  const abcXyzQuery = trpc.analytics.getAbcXyzAnalysis.useQuery(undefined, {
+    enabled: activeTab === 'abcxyz',
+    refetchOnWindowFocus: false,
+  });
+
   const isLoading =
     (activeTab === 'stock' && stockReportQuery.isLoading) ||
     (activeTab === 'movement' && movementReportQuery.isLoading) ||
     (activeTab === 'supplier' && supplierReportQuery.isLoading) ||
-    (activeTab === 'aging' && agingReportQuery.isLoading);
+    (activeTab === 'aging' && agingReportQuery.isLoading) ||
+    (activeTab === 'abcxyz' && abcXyzQuery.isLoading);
 
   // Gelişmiş Çoklu Sayfa Excel Export
   const handleExportMultiSheetExcel = async () => {
@@ -258,6 +265,19 @@ export default function RaporlarPage() {
           { header: 'Durum', key: 'categoryLabel', width: 15 },
         ];
         await generateExcel('Stok Yaslandirma Raporu', columns, data);
+      } else if (activeTab === 'abcxyz' && abcXyzQuery.data) {
+        const columns = [
+          { header: 'Ürün Adı', key: 'name', width: 25 },
+          { header: 'SKU', key: 'sku', width: 15 },
+          { header: 'Kategori', key: 'categoryName', width: 18 },
+          { header: 'Tüketim Değeri (₺)', key: 'consumptionValue', width: 20 },
+          { header: 'Çıkış Miktarı', key: 'totalOutQty', width: 15 },
+          { header: 'Mevcut Stok', key: 'currentStock', width: 15 },
+          { header: 'ABC Sınıfı', key: 'abc', width: 12 },
+          { header: 'XYZ Sınıfı', key: 'xyz', width: 12 },
+          { header: 'Birleşik', key: 'abcXyz', width: 12 },
+        ];
+        await generateExcel('ABC-XYZ Analizi', columns, abcXyzQuery.data.items);
       }
     } catch (err) {
       console.error('Excel export hatası:', err);
@@ -381,6 +401,19 @@ export default function RaporlarPage() {
             r.categoryLabel,
           ]);
         await generatePDF('Stok Yaşlandırma Raporu', headers, rows);
+      } else if (activeTab === 'abcxyz' && abcXyzQuery.data) {
+        const headers = [['Ürün Adı', 'SKU', 'Tüketim Değeri', 'Çıkış Miktarı', 'Stok', 'ABC', 'XYZ', 'Birleşik']];
+        const rows = abcXyzQuery.data.items.map((r) => [
+          r.name,
+          r.sku,
+          r.consumptionValue > 0 ? `₺${r.consumptionValue.toLocaleString('tr-TR')}` : '—',
+          r.totalOutQty,
+          r.currentStock,
+          r.abc,
+          r.xyz,
+          r.abcXyz,
+        ]);
+        await generatePDF('ABC-XYZ Analizi', headers, rows);
       }
     } catch (err) {
       console.error('PDF export hatası:', err);
@@ -505,6 +538,17 @@ export default function RaporlarPage() {
           <Calendar className="w-4 h-4" />
           Stok Yaşlandırma
         </button>
+        <button
+          onClick={() => setActiveTab('abcxyz')}
+          className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'abcxyz'
+              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+              : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          ABC/XYZ Analizi
+        </button>
       </div>
 
       {/* Filters (only for stock movement tab) */}
@@ -574,7 +618,9 @@ export default function RaporlarPage() {
               ? 'Envanter Giriş/Çıkış Hareket Kayıtları'
               : activeTab === 'supplier'
               ? 'Tedarikçi Satın Alma & Teslimat Performansı'
-              : 'Stok Yaşlandırma (Hareketsizlik) Analizi'}
+              : activeTab === 'aging'
+              ? 'Stok Yaşlandırma (Hareketsizlik) Analizi'
+              : 'ABC/XYZ Envanter Sınıflandırma Analizi'}
           </span>
         </div>
 
@@ -801,6 +847,86 @@ export default function RaporlarPage() {
                         </td>
                       </tr>
                     ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : activeTab === 'abcxyz' && abcXyzQuery.data ? (
+          <div>
+            {/* Açıklama Banner */}
+            <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-indigo-50/40 dark:bg-indigo-950/10 text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+              <p><span className="font-bold text-zinc-900 dark:text-zinc-100">ABC:</span> Son 90 günlük tüketim değerine göre — <span className="font-semibold text-emerald-600">A</span> üst %70 değer (kritik), <span className="font-semibold text-amber-500">B</span> %70-90, <span className="font-semibold text-zinc-500">C</span> alt %10.</p>
+              <p><span className="font-bold text-zinc-900 dark:text-zinc-100">XYZ:</span> Haftalık talep düzenliliğine göre — <span className="font-semibold text-blue-600">X</span> istikrarlı (CV≤0.5), <span className="font-semibold text-purple-600">Y</span> değişken (CV≤1.0), <span className="font-semibold text-rose-500">Z</span> düzensiz/hareketsiz.</p>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-800/10">
+              {(['A', 'B', 'C'] as const).map((cls) => (
+                <div key={cls} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Sınıf {cls}</span>
+                  <span className={`text-xl font-extrabold mt-1 ${cls === 'A' ? 'text-emerald-600' : cls === 'B' ? 'text-amber-500' : 'text-zinc-500'}`}>
+                    {abcXyzQuery.data.summary[cls]} ürün
+                  </span>
+                </div>
+              ))}
+              {(['X', 'Y', 'Z'] as const).map((cls) => (
+                <div key={cls} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Sınıf {cls}</span>
+                  <span className={`text-xl font-extrabold mt-1 ${cls === 'X' ? 'text-blue-600' : cls === 'Y' ? 'text-purple-500' : 'text-rose-500'}`}>
+                    {abcXyzQuery.data.summary[cls]} ürün
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20 text-zinc-600 dark:text-zinc-400 font-medium">
+                    <th className="px-6 py-4">Ürün Adı</th>
+                    <th className="px-6 py-4">SKU</th>
+                    <th className="px-6 py-4">Kategori</th>
+                    <th className="px-6 py-4 text-right">Tüketim Değeri (₺)</th>
+                    <th className="px-6 py-4 text-right">Çıkış Miktarı</th>
+                    <th className="px-6 py-4 text-center">Mevcut Stok</th>
+                    <th className="px-6 py-4 text-center">ABC</th>
+                    <th className="px-6 py-4 text-center">XYZ</th>
+                    <th className="px-6 py-4 text-center">Birleşik</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                  {abcXyzQuery.data.items.map((r) => (
+                    <tr key={r.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                      <td className="px-6 py-4 font-semibold text-zinc-900 dark:text-zinc-50">{r.name}</td>
+                      <td className="px-6 py-4 font-mono text-xs">{r.sku}</td>
+                      <td className="px-6 py-4 text-xs text-zinc-500">{r.categoryName}</td>
+                      <td className="px-6 py-4 text-right font-semibold">
+                        {r.consumptionValue > 0 ? `₺${r.consumptionValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '—'}
+                      </td>
+                      <td className="px-6 py-4 text-right">{r.totalOutQty}</td>
+                      <td className="px-6 py-4 text-center font-bold">{r.currentStock}</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          r.abc === 'A' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30' :
+                          r.abc === 'B' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30' :
+                          'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                        }`}>{r.abc}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          r.xyz === 'X' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30' :
+                          r.xyz === 'Y' ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30' :
+                          'bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30'
+                        }`}>{r.xyz}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900">
+                          {r.abcXyz}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

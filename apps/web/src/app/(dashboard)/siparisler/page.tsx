@@ -18,6 +18,11 @@ import {
   Eye,
   MapPin,
   FileText,
+  ClipboardList,
+  Send,
+  PackageCheck,
+  CircleX,
+  Clock,
 } from 'lucide-react';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
@@ -597,6 +602,61 @@ export default function SiparislerPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Order Status Timeline */}
+                {(() => {
+                  const ORDER_STEPS = [
+                    { status: 'DRAFT',     label: 'Taslak',      Icon: ClipboardList, color: 'text-zinc-500',                           activeBg: 'bg-zinc-100 dark:bg-zinc-800',      ring: 'ring-zinc-400'    },
+                    { status: 'SENT',      label: 'Gönderildi',  Icon: Send,          color: 'text-blue-600 dark:text-blue-400',         activeBg: 'bg-blue-100 dark:bg-blue-950/50',   ring: 'ring-blue-400'    },
+                    { status: 'PARTIAL',   label: 'Kısmi Kabul', Icon: Package,       color: 'text-amber-600 dark:text-amber-400',       activeBg: 'bg-amber-100 dark:bg-amber-950/50', ring: 'ring-amber-400'   },
+                    { status: 'RECEIVED',  label: 'Tamamlandı',  Icon: PackageCheck,  color: 'text-emerald-600 dark:text-emerald-400',   activeBg: 'bg-emerald-100 dark:bg-emerald-950/50', ring: 'ring-emerald-400' },
+                  ];
+                  const cancelStep = { status: 'CANCELLED', label: 'İptal', Icon: CircleX, color: 'text-rose-600 dark:text-rose-400', activeBg: 'bg-rose-100 dark:bg-rose-950/50', ring: 'ring-rose-400' };
+                  const currentStatus = detailQuery.data!.status;
+                  const isCancelled = currentStatus === 'CANCELLED';
+                  const steps = isCancelled ? [...ORDER_STEPS, cancelStep] : ORDER_STEPS;
+                  const currentIdx = steps.findIndex((s) => s.status === currentStatus);
+
+                  return (
+                    <div className="bg-zinc-50/50 dark:bg-zinc-800/10 rounded-xl border border-zinc-150 dark:border-zinc-850 p-4">
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" /> Sipariş Akışı
+                      </p>
+                      <div className="flex items-center">
+                        {steps.map((step, idx) => {
+                          const isDone = isCancelled ? step.status === 'CANCELLED' : idx <= currentIdx;
+                          const isCurrent = step.status === currentStatus;
+                          const { Icon } = step;
+                          return (
+                            <React.Fragment key={step.status}>
+                              <div className="flex flex-col items-center gap-1.5 flex-1">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center ring-2 transition-all ${
+                                  isCurrent
+                                    ? `${step.activeBg} ${step.ring}`
+                                    : isDone
+                                    ? `${step.activeBg} ring-transparent`
+                                    : 'bg-zinc-100 dark:bg-zinc-800 ring-transparent'
+                                }`}>
+                                  <Icon className={`w-4 h-4 ${isDone ? step.color : 'text-zinc-400 dark:text-zinc-600'}`} />
+                                </div>
+                                <span className={`text-[10px] font-semibold text-center leading-tight ${
+                                  isCurrent ? step.color : isDone ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-600'
+                                }`}>
+                                  {step.label}
+                                </span>
+                              </div>
+                              {idx < steps.length - 1 && (
+                                <div className={`h-0.5 flex-1 mx-1 mb-5 rounded-full transition-all ${
+                                  idx < currentIdx ? 'bg-indigo-400 dark:bg-indigo-600' : 'bg-zinc-200 dark:bg-zinc-700'
+                                }`} />
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Items List */}
                 <div className="space-y-3">

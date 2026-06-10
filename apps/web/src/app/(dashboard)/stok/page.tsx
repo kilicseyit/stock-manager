@@ -114,8 +114,54 @@ export default function StokPage() {
   const products = productsQuery.data?.items ?? [];
   const locations = locationsQuery.data ?? [];
 
+  // Critical stock items (quantity === 0)
+  const criticalItems = (stockQuery.data ?? []).filter((item) => item.quantity === 0);
+  const lowItems = (stockQuery.data ?? []).filter((item) => item.quantity > 0 && item.quantity <= item.product.minStock);
+
   return (
     <div className="space-y-6">
+      {/* Critical Stock Banner */}
+      {!stockQuery.isLoading && criticalItems.length > 0 && (
+        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+          <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0 animate-pulse" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-rose-800 dark:text-rose-300">
+              {criticalItems.length} ürünün stoğu tükendi!
+            </p>
+            <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">
+              {criticalItems.slice(0, 3).map((i) => i.product.name).join(', ')}
+              {criticalItems.length > 3 ? ` ve ${criticalItems.length - 3} diğeri` : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setStockStatusFilter('out')}
+            className="text-xs font-bold text-rose-700 dark:text-rose-300 hover:underline shrink-0 whitespace-nowrap"
+          >
+            Filtrele →
+          </button>
+        </div>
+      )}
+      {/* Low Stock Banner */}
+      {!stockQuery.isLoading && criticalItems.length === 0 && lowItems.length > 0 && (
+        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+              {lowItems.length} ürün minimum stok seviyesinin altında.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              {lowItems.slice(0, 3).map((i) => i.product.name).join(', ')}
+              {lowItems.length > 3 ? ` ve ${lowItems.length - 3} diğeri` : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setStockStatusFilter('low')}
+            className="text-xs font-bold text-amber-700 dark:text-amber-300 hover:underline shrink-0 whitespace-nowrap"
+          >
+            Filtrele →
+          </button>
+        </div>
+      )}
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

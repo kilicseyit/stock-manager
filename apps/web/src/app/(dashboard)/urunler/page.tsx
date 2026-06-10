@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Package, 
-  Search, 
-  Filter, 
-  Plus, 
-  FileSpreadsheet, 
-  Pencil, 
-  Trash2, 
-  AlertTriangle, 
-  Loader2, 
-  ChevronRight, 
-  ArrowRight, 
+import { useRouter } from 'next/navigation';
+import {
+  Package,
+  Search,
+  Filter,
+  Plus,
+  FileSpreadsheet,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  ChevronRight,
+  ArrowRight,
   AlertCircle,
   Inbox,
   CheckCircle2,
@@ -22,6 +23,7 @@ import {
   History,
 } from 'lucide-react';
 import { trpc } from '@/trpc/client';
+import EmptyState from '@/components/ui/EmptyState';
 import { useDebounce } from '@/hooks/useDebounce';
 import ProductFormModal from '@/components/features/products/ProductFormModal';
 import ImportModal from '@/components/features/products/ImportModal';
@@ -46,6 +48,7 @@ interface ProductItem {
 
 export default function ProductsPage() {
   const utils = trpc.useUtils();
+  const router = useRouter();
 
   // Search & Filter state
   const [search, setSearch] = useState('');
@@ -378,25 +381,32 @@ export default function ProductsPage() {
             <p className="text-sm font-semibold">Ürün listesi yükleniyor...</p>
           </div>
         ) : accumulatedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 animate-fadeIn">
-            <div className="p-4 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
-              <Inbox className="w-10 h-10" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Hiç Ürün Bulunamadı</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm">
-                Arama kriterlerinize uyan veya veritabanında kayıtlı bir ürün bulunmamaktadır.
-              </p>
-            </div>
-            {(search || selectedCategory) && (
-              <button
-                onClick={() => { setSearch(''); setSelectedCategory(''); }}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                Filtreleri Temizle
-              </button>
-            )}
-          </div>
+          <EmptyState
+            variant={search || selectedCategory ? 'search' : 'products'}
+            title={search || selectedCategory ? 'Sonuç Bulunamadı' : 'Henüz Ürün Eklenmemiş'}
+            description={
+              search || selectedCategory
+                ? `"${search || ''}" araması veya seçili kategori için eşleşme yok.`
+                : 'Ürün kataloğunuzu oluşturmaya başlamak için ilk ürününüzü ekleyin.'
+            }
+            action={
+              (search || selectedCategory) ? (
+                <button
+                  onClick={() => { setSearch(''); setSelectedCategory(''); }}
+                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Filtreleri Temizle
+                </button>
+              ) : (
+                <button
+                  onClick={handleCreateClick}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-all"
+                >
+                  <Plus className="w-4 h-4" /> İlk Ürünü Ekle
+                </button>
+              )
+            }
+          />
         ) : viewMode === 'card' ? (
           /* Card Grid View */
           <div className="space-y-6">
@@ -636,6 +646,13 @@ export default function ProductsPage() {
                           {/* Actions */}
                           <td className="py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); router.push(`/urunler/${product.id}`); }}
+                                className="p-2 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 transition-all"
+                                title="Detay Sayfası"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

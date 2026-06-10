@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { trpc } from '@/trpc/client';
 import { useForm } from 'react-hook-form';
 import {
@@ -17,6 +18,7 @@ import {
   Mail,
   MapPin,
   Cpu,
+  ChevronRight,
 } from 'lucide-react';
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
@@ -37,6 +39,7 @@ interface WarehouseFormValues {
 
 export default function AyarlarPage() {
   const { showToast } = useToast();
+  const router = useRouter();
   const { data: session, update: updateSession } = useSession();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
@@ -210,6 +213,15 @@ export default function AyarlarPage() {
           <Info className="w-4 h-4" />
           Sistem Bilgileri
         </button>
+        {session?.user?.role === 'SUPER_ADMIN' && (
+          <button
+            onClick={() => router.push('/ayarlar/email-sablonlari')}
+            className="pb-3 flex items-center gap-2 border-b-2 border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-all"
+          >
+            <Mail className="w-4 h-4" />
+            Email Şablonları
+          </button>
+        )}
       </div>
 
       {/* Tab Panels */}

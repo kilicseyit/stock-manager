@@ -234,58 +234,45 @@ function DroppableContainer({ id, children, className }: DroppableContainerProps
   );
 }
 
+const DEFAULT_KPI_WIDGETS = ['kpi-totalProducts', 'kpi-totalStockValue', 'kpi-pendingOrders', 'kpi-criticalStockCount'];
+const DEFAULT_MAIN_WIDGETS = ['trend', 'category', 'top-products', 'occupancy'];
+const DEFAULT_WIDGET_SIZES: Record<string, 'small' | 'medium' | 'large'> = {
+  trend: 'medium', category: 'small', 'top-products': 'medium', occupancy: 'small',
+};
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [daysFilter, setDaysFilter] = useState(30);
 
-  const [kpiWidgets, setKpiWidgets] = useState<string[]>([
-    'kpi-totalProducts',
-    'kpi-totalStockValue',
-    'kpi-pendingOrders',
-    'kpi-criticalStockCount'
-  ]);
-  const [mainWidgets, setMainWidgets] = useState<string[]>([
-    'trend',
-    'category',
-    'top-products',
-    'occupancy'
-  ]);
-  const [widgetSizes, setWidgetSizes] = useState<Record<string, 'small' | 'medium' | 'large'>>({
-    trend: 'medium',
-    category: 'small',
-    'top-products': 'medium',
-    occupancy: 'small',
-  });
+  const [kpiWidgets, setKpiWidgets] = useState<string[]>(DEFAULT_KPI_WIDGETS);
+  const [mainWidgets, setMainWidgets] = useState<string[]>(DEFAULT_MAIN_WIDGETS);
+  const [widgetSizes, setWidgetSizes] = useState<Record<string, 'small' | 'medium' | 'large'>>(DEFAULT_WIDGET_SIZES);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [layoutLoaded, setLayoutLoaded] = useState(false);
+
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore – tRPC deep type instantiation false positive
+  const layoutQuery = trpc.user.getDashboardLayout.useQuery(
+    { userId: session?.user?.id ?? '' },
+    { enabled: !!session?.user?.id, refetchOnWindowFocus: false }
+  );
+  const saveLayoutMutation = trpc.user.saveDashboardLayout.useMutation();
 
   useEffect(() => {
-    const savedKpis = localStorage.getItem('dashboard_kpi_widgets');
-    const savedMain = localStorage.getItem('dashboard_main_widgets');
-    const savedSizes = localStorage.getItem('dashboard_widget_sizes');
-    if (savedKpis) {
-      try {
-        setKpiWidgets(JSON.parse(savedKpis));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    if (savedMain) {
-      try {
-        setMainWidgets(JSON.parse(savedMain));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    if (savedSizes) {
-      try {
-        setWidgetSizes(JSON.parse(savedSizes));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, []);
+    if (!layoutQuery.data || layoutLoaded) return;
+    const l = layoutQuery.data as any;
+    if (l.kpiWidgets) setKpiWidgets(l.kpiWidgets);
+    if (l.mainWidgets) setMainWidgets(l.mainWidgets);
+    if (l.widgetSizes) setWidgetSizes(l.widgetSizes);
+    setLayoutLoaded(true);
+  }, [layoutQuery.data, layoutLoaded]);
+
+  const persistLayout = (kpis: string[], main: string[], sizes: Record<string, 'small' | 'medium' | 'large'>) => {
+    if (!session?.user?.id) return;
+    saveLayoutMutation.mutate({ userId: session.user.id, layout: { kpiWidgets: kpis, mainWidgets: main, widgetSizes: sizes } });
+  };
 
   const findContainer = (id: string) => {
     if (id === 'kpi') return 'kpi';
@@ -298,34 +285,14 @@ export default function DashboardPage() {
   const handleSizeChange = (id: string, newSize: 'small' | 'medium' | 'large') => {
     const newSizes = { ...widgetSizes, [id]: newSize };
     setWidgetSizes(newSizes);
-    localStorage.setItem('dashboard_widget_sizes', JSON.stringify(newSizes));
+    persistLayout(kpiWidgets, mainWidgets, newSizes);
   };
 
   const handleResetSettings = () => {
-    const defaultKpis = [
-      'kpi-totalProducts',
-      'kpi-totalStockValue',
-      'kpi-pendingOrders',
-      'kpi-criticalStockCount'
-    ];
-    const defaultMain = [
-      'trend',
-      'category',
-      'top-products',
-      'occupancy'
-    ];
-    const defaultSizes: Record<string, 'small' | 'medium' | 'large'> = {
-      trend: 'medium',
-      category: 'small',
-      'top-products': 'medium',
-      occupancy: 'small',
-    };
-    setKpiWidgets(defaultKpis);
-    setMainWidgets(defaultMain);
-    setWidgetSizes(defaultSizes);
-    localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(defaultKpis));
-    localStorage.setItem('dashboard_main_widgets', JSON.stringify(defaultMain));
-    localStorage.setItem('dashboard_widget_sizes', JSON.stringify(defaultSizes));
+    setKpiWidgets(DEFAULT_KPI_WIDGETS);
+    setMainWidgets(DEFAULT_MAIN_WIDGETS);
+    setWidgetSizes(DEFAULT_WIDGET_SIZES);
+    persistLayout(DEFAULT_KPI_WIDGETS, DEFAULT_MAIN_WIDGETS, DEFAULT_WIDGET_SIZES);
   };
 
   const handleAddWidget = (id: string) => {
@@ -333,13 +300,13 @@ export default function DashboardPage() {
       if (!kpiWidgets.includes(id)) {
         const newKpis = [...kpiWidgets, id];
         setKpiWidgets(newKpis);
-        localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(newKpis));
+        persistLayout(newKpis, mainWidgets, widgetSizes);
       }
     } else {
       if (!mainWidgets.includes(id)) {
         const newMain = [...mainWidgets, id];
         setMainWidgets(newMain);
-        localStorage.setItem('dashboard_main_widgets', JSON.stringify(newMain));
+        persistLayout(kpiWidgets, newMain, widgetSizes);
       }
     }
   };
@@ -348,12 +315,12 @@ export default function DashboardPage() {
     if (kpiWidgets.includes(id)) {
       const newKpis = kpiWidgets.filter((wId) => wId !== id);
       setKpiWidgets(newKpis);
-      localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(newKpis));
+      persistLayout(newKpis, mainWidgets, widgetSizes);
     }
     if (mainWidgets.includes(id)) {
       const newMain = mainWidgets.filter((wId) => wId !== id);
       setMainWidgets(newMain);
-      localStorage.setItem('dashboard_main_widgets', JSON.stringify(newMain));
+      persistLayout(kpiWidgets, newMain, widgetSizes);
     }
   };
 
@@ -436,18 +403,7 @@ export default function DashboardPage() {
       }
     }
 
-    localStorage.setItem('dashboard_kpi_widgets', JSON.stringify(latestKpis));
-    localStorage.setItem('dashboard_main_widgets', JSON.stringify(latestMain));
-
-    // Restore widget sizes from localStorage after dragging to ensure they are preserved
-    const savedSizes = localStorage.getItem('dashboard_widget_sizes');
-    if (savedSizes) {
-      try {
-        setWidgetSizes(JSON.parse(savedSizes));
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    persistLayout(latestKpis, latestMain, widgetSizes);
   };
 
   // tRPC Queries
@@ -663,8 +619,34 @@ export default function DashboardPage() {
     }
   };
 
+  const criticalStockCount = kpisQuery.data?.criticalStockCount ?? 0;
+  const lowStockCount = kpisQuery.data?.lowStockCount ?? 0;
+
   return (
     <div className="space-y-8 animate-fadeIn">
+      {/* Critical Stock Banner */}
+      {!kpisQuery.isLoading && criticalStockCount > 0 && (
+        <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+          <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 animate-pulse" />
+          <p className="text-sm font-bold text-rose-800 dark:text-rose-300 flex-1">
+            {criticalStockCount} ürünün stoğu tükendi — acil temin gerekiyor!
+          </p>
+          <a href="/stok" className="text-xs font-bold text-rose-700 dark:text-rose-300 hover:underline shrink-0">
+            Stok Sayfasına Git →
+          </a>
+        </div>
+      )}
+      {!kpisQuery.isLoading && criticalStockCount === 0 && lowStockCount > 0 && (
+        <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-sm font-bold text-amber-800 dark:text-amber-300 flex-1">
+            {lowStockCount} ürün minimum stok seviyesinin altında.
+          </p>
+          <a href="/stok" className="text-xs font-bold text-amber-700 dark:text-amber-300 hover:underline shrink-0">
+            Stok Sayfasına Git →
+          </a>
+        </div>
+      )}
       {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -776,6 +758,7 @@ export default function DashboardPage() {
             </SortableContext>
           </div>
         </div>
+
       </DndContext>
 
       {/* Widget Settings side drawer */}

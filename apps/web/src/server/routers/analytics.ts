@@ -44,15 +44,17 @@ export const analyticsRouter = router({
         },
       },
     });
-    const criticalStockCount = stockItemsAll.filter(
-      (item) => item.product.minStock > 0 && item.quantity <= item.product.minStock
+    const criticalStockCount = stockItemsAll.filter((item) => item.quantity === 0).length;
+    const lowStockCount = stockItemsAll.filter(
+      (item) => item.quantity > 0 && item.product.minStock > 0 && item.quantity <= item.product.minStock
     ).length;
 
     return {
       totalProducts,
-      totalStockValue: Math.round(totalStockValue * 100) / 100, // virgülden sonra 2 hane
+      totalStockValue: Math.round(totalStockValue * 100) / 100,
       pendingOrders,
       criticalStockCount,
+      lowStockCount,
     };
   }),
 
@@ -410,6 +412,92 @@ export const analyticsRouter = router({
     return {
       items,
       summary,
+    };
+  }),
+
+  /** ABC/XYZ Envanter Sınıflandırma Analizi */
+  getAbcXyzAnalysis: publicProcedure.query(async () => {
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const products = await prisma.product.findMany({
+      include: {
+        category: { select: { name: true } },
+        stockItems: { select: { quantity: true } },
+        orderItems: {
+          orderBy: { order: { createdAt: 'desc' } },
+          take: 1,
+          select: { unitPrice: true },
+        },
+        movements: {
+          where: { type: 'OUT', createdAt: { gte: ninetyDaysAgo } },
+          select: { quantity: true, createdAt: true },
+        },
+      },
+    });
+
+    // ABC: son 90 günlük OUT tüketim değeri = miktar × son birim fiyat
+    const withValue = products.map((p) => {
+      const unitPrice = p.orderItems[0]?.unitPrice ?? 0;
+      const totalOutQty = p.movements.reduce((s, m) => s + m.quantity, 0);
+      const consumptionValue = totalOutQty * unitPrice;
+      const currentStock = p.stockItems.reduce((s, i) => s + i.quantity, 0);
+      return { p, unitPrice, totalOutQty, consumptionValue, currentStock };
+    });
+
+    const grandTotal = withValue.reduce((s, x) => s + x.consumptionValue, 0);
+    const sorted = [...withValue].sort((a, b) => b.consumptionValue - a.consumptionValue);
+
+    let cumulative = 0;
+    const abcMap = new Map<string, 'A' | 'B' | 'C'>();
+    for (const item of sorted) {
+      cumulative += grandTotal > 0 ? item.consumptionValue / grandTotal : 0;
+      abcMap.set(item.p.id, cumulative <= 0.7 ? 'A' : cumulative <= 0.9 ? 'B' : 'C');
+    }
+
+    // XYZ: 12 haftalık talep varyasyon katsayısı (CV = stddev / mean)
+    const xyzResults = products.map((p) => {
+      const weeks: number[] = Array(12).fill(0);
+      const now = Date.now();
+      p.movements.forEach((m) => {
+        const weekIdx = Math.min(11, Math.floor((now - new Date(m.createdAt).getTime()) / (7 * 86400000)));
+        weeks[weekIdx] += m.quantity;
+      });
+      const mean = weeks.reduce((s, v) => s + v, 0) / 12;
+      if (mean === 0) return { id: p.id, xyz: 'Z' as const };
+      const variance = weeks.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / 12;
+      const cv = Math.sqrt(variance) / mean;
+      return { id: p.id, xyz: cv <= 0.5 ? ('X' as const) : cv <= 1.0 ? ('Y' as const) : ('Z' as const) };
+    });
+    const xyzMap = new Map(xyzResults.map((r) => [r.id, r.xyz]));
+
+    const items = withValue.map(({ p, unitPrice, totalOutQty, consumptionValue, currentStock }) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      categoryName: p.category?.name ?? '—',
+      currentStock,
+      unitPrice,
+      totalOutQty,
+      consumptionValue: Math.round(consumptionValue * 100) / 100,
+      abc: abcMap.get(p.id) ?? ('C' as 'A' | 'B' | 'C'),
+      xyz: xyzMap.get(p.id) ?? ('Z' as 'X' | 'Y' | 'Z'),
+      abcXyz: `${abcMap.get(p.id) ?? 'C'}${xyzMap.get(p.id) ?? 'Z'}`,
+    }));
+
+    const summary = {
+      A: items.filter((i) => i.abc === 'A').length,
+      B: items.filter((i) => i.abc === 'B').length,
+      C: items.filter((i) => i.abc === 'C').length,
+      X: items.filter((i) => i.xyz === 'X').length,
+      Y: items.filter((i) => i.xyz === 'Y').length,
+      Z: items.filter((i) => i.xyz === 'Z').length,
+    };
+
+    return {
+      items: items.sort((a, b) => b.consumptionValue - a.consumptionValue),
+      summary,
+      grandTotal: Math.round(grandTotal * 100) / 100,
     };
   }),
 
